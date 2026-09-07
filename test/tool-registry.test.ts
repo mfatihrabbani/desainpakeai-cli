@@ -232,6 +232,7 @@ test("downloads a visual review through ordinary HTTP", async () => {
   const reviewId = randomUUID();
   const root = await mkdtemp(resolve(tmpdir(), "dpai-cli-review-"));
   const imagePath = resolve(root, "review.png");
+  const nativeImagePath = resolve(root, "native-review.png");
   const server = createServer((request, response) => {
     assert.equal(request.headers.authorization, "Bearer dpai_test_key");
     if (!request.url?.endsWith("/image")) {
@@ -266,6 +267,26 @@ test("downloads a visual review through ordinary HTTP", async () => {
     assert.deepEqual(result.comments, [{ kind: "rectangle", note: "Increase contrast", number: 1 }]);
     assert.deepEqual(
       [...await readFile(imagePath)],
+      [137, 80, 78, 71, 13, 10, 26, 10],
+    );
+    const native = JSON.parse((await execFileAsync(process.execPath, [
+      "--import",
+      "tsx",
+      resolve("src/cli.ts"),
+      "review",
+      "get",
+      "--review",
+      reviewId,
+      "--output",
+      nativeImagePath,
+      "--api-url",
+      `http://127.0.0.1:${address.port}`,
+      "--api-key",
+      "dpai_test_key",
+    ], { cwd: resolve(".") })).stdout) as { imagePath: string };
+    assert.equal(native.imagePath, nativeImagePath);
+    assert.deepEqual(
+      [...await readFile(nativeImagePath)],
       [137, 80, 78, 71, 13, 10, 26, 10],
     );
   } finally {
@@ -387,6 +408,159 @@ test("CLI native flags author a page without JSON or explicit revisions", async 
     "activity",
   ], { encoding: "utf8" })) as { pageCount: number };
   assert.equal(verified.pageCount, 2);
+});
+
+test("CLI native flags manage design tokens and guidance without handwritten JSON", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "dpai-cli-design-flags-"));
+  await createWorkspaceFixture(root);
+  const cli = ["--import", "tsx", resolve("src/cli.ts")];
+  const run = (...args: string[]) => JSON.parse(execFileSync(process.execPath, [
+    ...cli,
+    ...args,
+    "--workspace",
+    root,
+  ], { encoding: "utf8" })) as Record<string, any>;
+
+  const context = run(
+    "design",
+    "context",
+    "--detail",
+    "compact",
+    "--section",
+    "Direction",
+  );
+  assert.deepEqual(context.sections.map((section: { heading: string }) => section.heading), [
+    "Direction",
+  ]);
+
+  const created = run(
+    "token",
+    "create",
+    "--name",
+    "--color-agent-accent",
+    "--type",
+    "color",
+    "--value",
+    "#635bff",
+  );
+  assert.match(created.revision, /^sha256-/);
+
+  run(
+    "token",
+    "set",
+    "--name",
+    "--color-agent-accent",
+    "--value",
+    "#574ee8",
+  );
+  const tokens = run("token", "list", "--type", "color", "--format", "json");
+  assert.ok(
+    JSON.stringify(tokens).includes("--color-agent-accent")
+      && JSON.stringify(tokens).includes("#574ee8"),
+  );
+
+  const section = "Use strong hierarchy, compact controls, and visible focus states.";
+  execFileSync(process.execPath, [
+    ...cli,
+    "design",
+    "set-section",
+    "--workspace",
+    root,
+    "--heading",
+    "Overview",
+  ], { encoding: "utf8", input: section });
+  assert.match(await readFile(resolve(root, "DESIGN.md"), "utf8"), new RegExp(section));
+
+  run("token", "delete", "--name", "--color-agent-accent");
+  const afterDelete = run("token", "list", "--type", "color", "--format", "json");
+  assert.doesNotMatch(JSON.stringify(afterDelete), /--color-agent-accent/);
+});
+
+test("CLI native flags support file filters, component fields, and layout detach", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "dpai-cli-extra-flags-"));
+  await createWorkspaceFixture(root);
+  const cli = ["--import", "tsx", resolve("src/cli.ts")];
+
+  const listed = JSON.parse(execFileSync(process.execPath, [
+    ...cli,
+    "file",
+    "list",
+    "--workspace",
+    root,
+    "--path",
+    "src",
+    "--depth",
+    "2",
+  ], { encoding: "utf8" })) as unknown;
+  assert.match(JSON.stringify(listed), /pages/);
+
+  const matches = JSON.parse(execFileSync(process.execPath, [
+    ...cli,
+    "file",
+    "grep",
+    "--workspace",
+    root,
+    "--query",
+    "HOME",
+    "--path",
+    "src/pages",
+    "--ignore-case",
+    "--limit",
+    "5",
+  ], { encoding: "utf8" })) as unknown;
+  assert.match(JSON.stringify(matches), /home/i);
+
+  const component = JSON.parse(execFileSync(process.execPath, [
+    ...cli,
+    "component",
+    "create",
+    "--workspace",
+    root,
+    "--id",
+    "status-pill",
+    "--tag",
+    "x-status-pill",
+    "--prop",
+    "tone=Visual tone",
+    "--default",
+    "tone=neutral",
+  ], { encoding: "utf8" })) as { component: { id: string } };
+  assert.equal(component.component.id, "status-pill");
+
+  execFileSync(process.execPath, [
+    ...cli,
+    "layout",
+    "create",
+    "--workspace",
+    root,
+    "--id",
+    "app-shell",
+  ], { encoding: "utf8" });
+  execFileSync(process.execPath, [
+    ...cli,
+    "page",
+    "set-layout",
+    "--workspace",
+    root,
+    "--page",
+    "home",
+    "--layout",
+    "app-shell",
+  ], { encoding: "utf8" });
+  execFileSync(process.execPath, [
+    ...cli,
+    "page",
+    "set-layout",
+    "--workspace",
+    root,
+    "--page",
+    "home",
+    "--detach-layout",
+  ], { encoding: "utf8" });
+  const manifest = JSON.parse(await readFile(resolve(root, "prototype.json"), "utf8")) as {
+    pages: Array<{ id: string; layout?: string }>;
+  };
+  assert.equal(manifest.pages.find((page) => page.id === "home")?.layout, undefined);
 });
 
 test("CLI defaults to the active remote project and reads its revision automatically", async () => {

@@ -7,17 +7,17 @@ CLI commands and packages the authoring workflow as a Codex skill.
 ## Run the latest CLI
 
 ```powershell
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz --version
+npx desainpakeai-cli@latest --version
 ```
 
 No global installation is required. Log in once, then omit `--workspace` to
 target the active PostgreSQL project:
 
 ```powershell
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz project current --pretty
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz context --pretty
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz guide get --topic prototype-authoring --raw
+npx desainpakeai-cli@latest auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
+npx desainpakeai-cli@latest project current --pretty
+npx desainpakeai-cli@latest context --pretty
+npx desainpakeai-cli@latest guide get --topic prototype-authoring --raw
 ```
 
 Remote guides are served by the DesainPakeAI application, so guide updates do
@@ -27,8 +27,8 @@ guide bundled with the selected CLI version as an offline fallback.
 Pass `--workspace` only for explicit filesystem-local work:
 
 ```bash
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz context --workspace /path/to/workspace
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz file read --workspace /path/to/workspace --path src/pages/home.page.html --full
+npx desainpakeai-cli@latest context --workspace /path/to/workspace
+npx desainpakeai-cli@latest file read --workspace /path/to/workspace --path src/pages/home.page.html --full
 ```
 
 ## Comfortable authoring without JSON
@@ -38,13 +38,13 @@ preserving the revision guard. Send long HTML or CSS as raw stdin with a Bash
 heredoc:
 
 ```bash
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz page create \
+npx desainpakeai-cli@latest page create \
   --id activity \
   --name "Activity" \
   --route /activity \
   --layout app-shell
 
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz file edit \
+npx desainpakeai-cli@latest file edit \
   --path src/pages/activity.page.html \
   --before '<!-- agent:page-sections -->' <<'HTML'
 <section data-node-id="activity.feed">
@@ -52,22 +52,39 @@ npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/rele
 </section>
 HTML
 
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz preview verify --page activity --pretty
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz work finish --page activity --pretty
+npx desainpakeai-cli@latest preview verify --page activity --pretty
+npx desainpakeai-cli@latest work finish --page activity --pretty
 ```
 
 Use `--content-file section.html` instead of a heredoc when a file-based flow
-is more convenient. `--content` handles short inline changes. The strict
-`--input` interface remains available for automation and compatibility.
+is more convenient. `--content` handles short inline changes.
+
+Design and component work also has native commands:
+
+```bash
+npx desainpakeai-cli@latest design context --detail compact --section Overview,Components --pretty
+npx desainpakeai-cli@latest token list --type color,spacing --format css
+npx desainpakeai-cli@latest token create --name --color-accent --type color --value "#635bff"
+npx desainpakeai-cli@latest token set --name --color-accent --value "#574ee8"
+npx desainpakeai-cli@latest token delete --name --color-legacy
+npx desainpakeai-cli@latest design set-section --heading Overview --content-file overview.md
+npx desainpakeai-cli@latest component create --id status-pill --tag x-status-pill \
+  --prop tone="Visual tone" --default tone=neutral
+npx desainpakeai-cli@latest review get --review 00000000-0000-4000-8000-000000000000 --output review.png
+```
+
+List flags may be repeated or comma-separated. File reads and searches support
+native line, depth, regex, case, and result-limit flags; run `--help` for the
+complete reference.
 
 ## Login and active project
 
 Use the `dpai_...` access key created from **Siapkan CLI** in DesainPakeAI:
 
 ```powershell
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz auth status --pretty
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz project current --pretty
+npx desainpakeai-cli@latest auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
+npx desainpakeai-cli@latest auth status --pretty
+npx desainpakeai-cli@latest project current --pretty
 ```
 
 The key is validated through `/api/cli/session`. Workspace commands use
@@ -80,17 +97,16 @@ directory. Use the same release URL with `auth logout` to remove them.
 Every operation is also available through the stable tool-name interface:
 
 ```bash
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz tools
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz call get_project_context
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz call get_guide --input '{"topic":"design-quality"}' --raw
-npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz call create_page --input @create-page.json
+npx desainpakeai-cli@latest tools
+npx desainpakeai-cli@latest call get_project_context
+npx desainpakeai-cli@latest call create_page --input @create-page.json
 ```
 
-Complex input can be supplied as inline JSON, `@file.json`, or stdin using
-`--input -`. Results are JSON by default. Use `--pretty` for formatted output
-or `--raw` for guide and other string results. `get_design_context` also
-supports the MCP-compatible `cursor` field for paginating long requested
-sections.
+Do not handwrite JSON in the shell. `--input @file.json` remains an escape hatch
+for complex or bulk operations that do not have native flags; `--input -` can
+read a generated JSON payload from stdin. Results are JSON by default. Use
+`--pretty` for formatted output or `--raw` for guide and other string results.
+`design context --cursor <value>` paginates long requested sections.
 
 ## Scope
 

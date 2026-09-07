@@ -9,7 +9,7 @@ import { CliConfigurationError } from "./errors.js";
 import { executeRemoteTool } from "./remote-workspace-client.js";
 import { executeTool, TOOL_NAMES, UnknownToolError } from "./tool-registry.js";
 
-const VERSION = "0.1.2";
+const VERSION = "0.2.0";
 
 const ALIASES: Record<string, string> = {
   "component create": "create_component",
@@ -33,6 +33,10 @@ const ALIASES: Record<string, string> = {
   "page set-layout": "set_page_layout",
   "preview verify": "verify_preview",
   "review get": "get_review",
+  "token create": "create_tokens",
+  "token delete": "set_tokens",
+  "token list": "get_tokens",
+  "token set": "set_tokens",
   "work finish": "finish_working_on_pages",
   "work status": "get_page_states",
 };
@@ -42,30 +46,60 @@ type ParsedArguments = {
   apiKey?: string;
   apiUrl?: string;
   append: boolean;
+  aroundLine?: string;
   before?: string;
   content?: string;
   contentFile?: string;
+  contextLines?: string;
+  cursor?: string;
+  deleteToken: boolean;
   deleteText?: string;
+  depth?: string;
+  description?: string;
+  designName?: string;
+  designVersion?: string;
+  detail?: string;
+  detachLayout: boolean;
+  defaults: string[];
+  endLine?: string;
   expectedRevision?: string;
   exportOutput?: string;
+  format?: string;
   full: boolean;
   help: boolean;
   height?: string;
+  heading?: string;
   id?: string;
+  ignoreCase: boolean;
+  include: string[];
   input?: string;
   layout?: string;
+  limit?: string;
   name?: string;
+  namePattern?: string;
+  newName?: string;
+  output?: string;
   overwrite: boolean;
   page?: string;
   path?: string;
   positional: string[];
   prepend: boolean;
   pretty: boolean;
+  props: string[];
   query?: string;
   raw: boolean;
+  regex: boolean;
   replace?: string;
+  review?: string;
   route?: string;
+  sections: string[];
+  snippetChars?: string;
+  startLine?: string;
+  tag?: string;
   topic?: string;
+  types: string[];
+  typographyRoles: string[];
+  value?: string;
   version: boolean;
   width?: string;
   workspace?: string;
@@ -131,8 +165,13 @@ async function main() {
       workspaceRoot,
     })
     : executeRemoteTool(name, value, { apiKey: args.apiKey, apiUrl: args.apiUrl });
+  if (args.positional.slice(0, 2).join(" ") === "token delete") {
+    args.deleteToken = true;
+  }
+  const input = args.input
+    ? await readJsonInput(args.input)
+    : await createConvenienceInput(toolName, args, () => readCurrentRevision(execute));
   if (toolName === "get_review") {
-    const input = args.input ? await readJsonInput(args.input) : {};
     const result = await executeTool(toolName, input, {
       apiKey: args.apiKey,
       apiUrl: args.apiUrl,
@@ -141,9 +180,6 @@ async function main() {
     writeOutput(result, args);
     return;
   }
-  const input = args.input
-    ? await readJsonInput(args.input)
-    : await createConvenienceInput(toolName, args, () => readCurrentRevision(execute));
   const result = await execute(toolName, input);
   writeOutput(result, args);
 }
@@ -151,54 +187,106 @@ async function main() {
 function parseArguments(values: string[]): ParsedArguments {
   const result: ParsedArguments = {
     append: false,
+    deleteToken: false,
+    detachLayout: false,
+    defaults: [],
     full: false,
     help: false,
+    ignoreCase: false,
+    include: [],
     overwrite: false,
     positional: [],
     prepend: false,
     pretty: false,
+    props: [],
     raw: false,
+    regex: false,
+    sections: [],
+    types: [],
+    typographyRoles: [],
     version: false,
   };
   const valueFlags: Record<string, keyof ParsedArguments> = {
     "--after": "after",
     "--api-key": "apiKey",
     "--api-url": "apiUrl",
+    "--around-line": "aroundLine",
     "--before": "before",
     "--content": "content",
     "--content-file": "contentFile",
+    "--context-lines": "contextLines",
+    "--cursor": "cursor",
     "--delete": "deleteText",
+    "--depth": "depth",
+    "--description": "description",
+    "--design-name": "designName",
+    "--design-version": "designVersion",
+    "--detail": "detail",
+    "--end-line": "endLine",
     "--expected-revision": "expectedRevision",
     "--export-output": "exportOutput",
+    "--format": "format",
     "--height": "height",
+    "--heading": "heading",
     "--id": "id",
     "--input": "input",
     "--layout": "layout",
+    "--limit": "limit",
     "--name": "name",
+    "--name-pattern": "namePattern",
+    "--new-name": "newName",
+    "--output": "output",
     "--page": "page",
     "--path": "path",
     "--query": "query",
     "--replace": "replace",
+    "--review": "review",
     "--route": "route",
+    "--snippet-chars": "snippetChars",
+    "--start-line": "startLine",
+    "--tag": "tag",
     "--topic": "topic",
+    "--value": "value",
     "--width": "width",
     "--workspace": "workspace",
+  };
+  const repeatableFlags: Record<string, keyof ParsedArguments> = {
+    "--default": "defaults",
+    "--include": "include",
+    "--prop": "props",
+    "--section": "sections",
+    "--type": "types",
+    "--typography-role": "typographyRoles",
   };
   for (let index = 0; index < values.length; index += 1) {
     const value = values[index]!;
     if (value === "--help" || value === "-h") result.help = true;
     else if (value === "--version" || value === "-v") result.version = true;
     else if (value === "--append") result.append = true;
+    else if (value === "--delete-token") result.deleteToken = true;
+    else if (value === "--detach-layout") result.detachLayout = true;
     else if (value === "--full") result.full = true;
+    else if (value === "--ignore-case") result.ignoreCase = true;
     else if (value === "--overwrite") result.overwrite = true;
     else if (value === "--prepend") result.prepend = true;
     else if (value === "--pretty") result.pretty = true;
     else if (value === "--raw") result.raw = true;
+    else if (value === "--regex") result.regex = true;
     else if (value.startsWith("--") && value.includes("=")) {
       const [flag, ...parts] = value.split("=");
+      const repeatableKey = repeatableFlags[flag!];
+      if (repeatableKey) {
+        appendListValue(result, repeatableKey, parts.join("="));
+        continue;
+      }
       const key = valueFlags[flag!];
       if (!key) throw new CliUsageError("UNKNOWN_OPTION", `Unknown option: ${flag}`);
       (result as Record<string, unknown>)[key] = parts.join("=");
+    } else if (repeatableFlags[value]) {
+      const next = values[index + 1];
+      if (!next) throw new CliUsageError("OPTION_VALUE_REQUIRED", `${value} requires a value.`);
+      appendListValue(result, repeatableFlags[value]!, next);
+      index += 1;
     } else if (valueFlags[value]) {
       const next = values[index + 1];
       if (!next) throw new CliUsageError("OPTION_VALUE_REQUIRED", `${value} requires a value.`);
@@ -211,6 +299,16 @@ function parseArguments(values: string[]): ParsedArguments {
     }
   }
   return result;
+}
+
+function appendListValue(
+  result: ParsedArguments,
+  key: keyof ParsedArguments,
+  value: string,
+) {
+  const target = result[key];
+  if (!Array.isArray(target)) throw new CliUsageError("UNKNOWN_OPTION", `Invalid list option: ${String(key)}`);
+  target.push(...value.split(",").map((item) => item.trim()).filter(Boolean));
 }
 
 function resolveInvocation(positional: string[]) {
@@ -268,11 +366,46 @@ async function createConvenienceInput(
   };
 
   if (toolName === "read_file" && args.path) {
-    return { full: args.full || undefined, path: args.path };
+    return {
+      aroundLine: parseOptionalInteger(args.aroundLine, "--around-line"),
+      contextLines: parseOptionalInteger(args.contextLines, "--context-lines"),
+      endLine: parseOptionalInteger(args.endLine, "--end-line"),
+      full: args.full || undefined,
+      path: args.path,
+      startLine: parseOptionalInteger(args.startLine, "--start-line"),
+    };
   }
   if (toolName === "get_guide" && args.topic) return { topic: args.topic };
+  if (toolName === "get_project_context") {
+    return { detail: args.detail, include: args.include.length ? args.include : undefined };
+  }
+  if (toolName === "get_design_context") {
+    return {
+      cursor: args.cursor,
+      detail: args.detail,
+      include: args.include.length ? args.include : undefined,
+      sections: args.sections.length ? args.sections : undefined,
+    };
+  }
+  if (toolName === "get_tokens") {
+    return {
+      format: args.format,
+      namePattern: args.namePattern,
+      types: args.types.length ? args.types : undefined,
+    };
+  }
+  if (toolName === "list_files") {
+    return { depth: parseOptionalInteger(args.depth, "--depth"), path: args.path };
+  }
   if (toolName === "grep" && args.query) {
-    return { path: args.path, query: args.query };
+    return {
+      ignoreCase: args.ignoreCase || undefined,
+      limit: parseOptionalInteger(args.limit, "--limit"),
+      path: args.path,
+      query: args.query,
+      regex: args.regex || undefined,
+      snippetChars: parseOptionalInteger(args.snippetChars, "--snippet-chars"),
+    };
   }
   if (toolName === "write_file" && args.path) {
     return {
@@ -335,16 +468,114 @@ async function createConvenienceInput(
     return { expectedRevision: await revision(), id: args.id };
   }
   if (toolName === "create_component" && args.id) {
-    return { expectedRevision: await revision(), id: args.id };
+    return {
+      defaults: parseAssignments(args.defaults, "--default"),
+      expectedRevision: await revision(),
+      id: args.id,
+      props: parseAssignments(args.props, "--prop"),
+      tag: args.tag,
+    };
   }
-  if (toolName === "set_page_layout" && args.page && args.layout) {
-    return { expectedRevision: await revision(), layout: args.layout, pageId: args.page };
+  if (toolName === "set_page_layout" && args.page && (args.layout || args.detachLayout)) {
+    if (args.layout && args.detachLayout) {
+      throw new CliUsageError("LAYOUT_SOURCE_CONFLICT", "Use either --layout or --detach-layout, not both.");
+    }
+    return {
+      expectedRevision: await revision(),
+      layout: args.detachLayout ? null : args.layout,
+      pageId: args.page,
+    };
+  }
+  if (toolName === "create_tokens" && (args.name || args.types.length || args.value !== undefined)) {
+    if (!args.name || args.types.length !== 1 || args.value === undefined) {
+      throw new CliUsageError(
+        "TOKEN_FIELDS_REQUIRED",
+        "token create requires --name, one --type, and --value.",
+      );
+    }
+    return {
+      expectedRevision: await revision(),
+      tokens: [{ name: args.name, type: args.types[0], value: args.value }],
+    };
+  }
+  if (toolName === "set_tokens" && args.name) {
+    if (!args.deleteToken && args.value === undefined && !args.newName && !args.typographyRoles.length) {
+      throw new CliUsageError(
+        "TOKEN_CHANGE_REQUIRED",
+        "token set requires --value, --new-name, --typography-role, or --delete-token.",
+      );
+    }
+    if (args.deleteToken && (args.value !== undefined || args.newName || args.typographyRoles.length)) {
+      throw new CliUsageError("TOKEN_DELETE_CONFLICT", "Token deletion cannot be combined with other changes.");
+    }
+    return {
+      expectedRevision: await revision(),
+      tokens: [{
+        delete: args.deleteToken || undefined,
+        name: args.name,
+        newName: args.newName,
+        typographyRoles: args.typographyRoles.length ? args.typographyRoles : undefined,
+        value: args.value,
+      }],
+    };
+  }
+  if (toolName === "set_design_section" && args.heading) {
+    return {
+      content: await content(),
+      expectedRevision: await revision(),
+      heading: args.heading,
+    };
+  }
+  if (toolName === "update_design_system" && (
+    args.designName !== undefined
+    || args.description !== undefined
+    || args.designVersion !== undefined
+  )) {
+    return {
+      expectedRevision: await revision(),
+      metadata: {
+        description: normalizeNullable(args.description),
+        name: normalizeNullable(args.designName),
+        version: normalizeNullable(args.designVersion),
+      },
+    };
+  }
+  if (toolName === "get_review" && args.review) {
+    return { output: args.output, reviewId: args.review };
   }
   if (toolName === "verify_preview" && args.page) return { pageId: args.page };
   if (toolName === "finish_working_on_pages" && args.page) {
     return { pageIds: args.page.split(",").map((page) => page.trim()).filter(Boolean) };
   }
+  if (toolName === "export_prototype") {
+    return { expectedRevision: await revision() };
+  }
   return {};
+}
+
+function parseOptionalInteger(value: string | undefined, flag: string) {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    throw new CliUsageError("INVALID_INTEGER", `${flag} must be an integer.`);
+  }
+  return parsed;
+}
+
+function parseAssignments(values: string[], flag: string) {
+  if (!values.length) return undefined;
+  return Object.fromEntries(values.map((value) => {
+    const separator = value.indexOf("=");
+    if (separator < 1) {
+      throw new CliUsageError("INVALID_ASSIGNMENT", `${flag} must use name=value.`);
+    }
+    return [value.slice(0, separator), value.slice(separator + 1)];
+  }));
+}
+
+function normalizeNullable(value: string | undefined) {
+  if (value === undefined) return undefined;
+  return value === "null" ? null : value;
 }
 
 async function readCurrentRevision(
@@ -478,9 +709,18 @@ Comfortable authoring:
   dpai preview verify --page activity
   dpai work finish --page activity
 
+Design without handwritten JSON:
+  dpai design context --detail compact --section Overview,Principles
+  dpai token list --type color,spacing --format css
+  dpai token create --name --color-accent --type color --value "#635bff"
+  dpai token set --name --color-accent --value "#574ee8"
+  dpai token delete --name --color-legacy
+  dpai design set-section --heading Principles --content-file principles.md
+
 Aliases:
   context
   design context|lint|tokens|create-tokens|set-tokens|set-section|update
+  token list|create|set|delete
   guide get
   file list|grep|read|write|edit
   page create|set-layout
@@ -494,6 +734,7 @@ Aliases:
 Options:
   --workspace <path>       Use a local prototype workspace instead of the active remote project
   --input <json|@file|->   Operation input (defaults to {})
+                           Prefer native flags; reserve this for complex or bulk payloads
   --path <path>            Workspace source path for file commands
   --content-file <path>    Read write/edit content from a plain text file
   --content <text>         Use short inline write/edit content
@@ -504,6 +745,32 @@ Options:
   --id --name --route      Native page-create fields (revision is automatic)
   --layout <id>            Layout for page create or page set-layout
   --page <id[,id...]>      Page target for verify and finish
+  --detail compact|full    Context detail level
+  --include <item[,item]>  Context fields; repeatable
+  --section <name[,name]>  Design sections; repeatable
+  --format json|css|tailwind Token output format
+  --type <type[,type]>     Token type filter, or one type when creating
+  --name <name>            Page name or CSS token name
+  --value <value>          Token value
+  --new-name <name>        Rename a token
+  --typography-role <role> Typography role; repeatable
+  --delete-token           Delete the named token
+  --heading <heading>      DESIGN.md section heading
+  --design-name <name>     Design-system metadata name
+  --description <text>     Design-system description; use null to clear
+  --design-version <text>  Design-system version; use null to clear
+  --depth <n>              File-list depth
+  --regex --ignore-case    File-grep matching modes
+  --start-line <n>         First line for file read
+  --end-line <n>           Last line for file read
+  --around-line <n>        Center a partial file read around a line
+  --context-lines <n>      Lines around --around-line
+  --tag <x-name>           Custom element tag for component create
+  --prop <name=value>      Component prop; repeatable
+  --default <name=value>   Component default; repeatable
+  --detach-layout          Remove the shared layout from a page
+  --review <uuid>          Visual review identifier
+  --output <path>          Downloaded visual review image path
   --topic <topic>          Guide topic for guide get
   --expected-revision <id> Optional explicit revision for native flags
   --export-output <path>   Override export output path
