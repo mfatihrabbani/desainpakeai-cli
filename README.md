@@ -8,7 +8,7 @@ CLI commands and packages the authoring workflow as a Codex skill.
 
 ```powershell
 npm install --global desainpakeai-cli@latest
-npx skills add mfatihrabbani/desainpakeai-cli -g -y
+npx skills add mfatihrabbani/desainpakeai-cli -g
 dpai --version
 ```
 
