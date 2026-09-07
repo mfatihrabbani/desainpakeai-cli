@@ -9,7 +9,7 @@ import { CliConfigurationError } from "./errors.js";
 import { executeRemoteTool } from "./remote-workspace-client.js";
 import { executeTool, TOOL_NAMES, UnknownToolError } from "./tool-registry.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 
 const ALIASES: Record<string, string> = {
   "component create": "create_component",

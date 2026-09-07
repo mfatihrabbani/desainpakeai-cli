@@ -8,7 +8,7 @@ description: Build, inspect, edit, verify, and export dependency-free DesainPake
 Use the latest `dpai` CLI through this command prefix:
 
 ```text
-npx --yes --prefer-online @desainpakeai/cli@latest
+npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz
 ```
 
 Do not initialize or call a DesainPakeAI MCP server. Do not use a globally
