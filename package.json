@@ -1,0 +1,45 @@
+{
+  "name": "@desainpakeai/cli",
+  "version": "0.1.0",
+  "description": "Agent-friendly CLI for DesainPakeAI prototype workspaces",
+  "homepage": "https://github.com/mfatihrabbani/desainpakeai-cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mfatihrabbani/desainpakeai-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mfatihrabbani/desainpakeai-cli/issues"
+  },
+  "type": "module",
+  "bin": {
+    "dpai": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    ".agents/skills/desainpakeai-prototype"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "tsx --test test/**/*.test.ts",
+    "skill:validate": "python %USERPROFILE%/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/desainpakeai-prototype",
+    "prepack": "pnpm check && pnpm test && pnpm build"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@google/design.md": "0.4.0",
+    "yaml": "2.9.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.2"
+  },
+  "packageManager": "pnpm@10.15.1",
+  "publishConfig": {
+    "access": "public"
+  }
+}
