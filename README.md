@@ -4,20 +4,29 @@ Standalone, agent-friendly CLI for the dependency-free DesainPakeAI prototype
 workspace. It exposes the complete workspace operation surface as deterministic
 CLI commands and packages the authoring workflow as a Codex skill.
 
-## Run the latest CLI
+## Install the CLI and skill
 
 ```powershell
-npx desainpakeai-cli@latest --version
+npm install --global desainpakeai-cli@latest
+npx skills add mfatihrabbani/desainpakeai-cli -g -y
+dpai --version
 ```
 
-No global installation is required. Log in once, then omit `--workspace` to
-target the active PostgreSQL project:
+If installation reports `EEXIST` for the `dpai` binary from an older beta,
+run `npm uninstall --global @desainpakeai/cli`, then retry the install. Do not
+use `--force`.
+
+The global binary avoids repeated `npx` startup cost. At the beginning of a new
+agent task, run `npm install --global desainpakeai-cli@latest` once to check for
+and install a newer release. Then use `dpai` for every operation in that task.
+
+Log in once, then omit `--workspace` to target the active PostgreSQL project:
 
 ```powershell
-npx desainpakeai-cli@latest auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
-npx desainpakeai-cli@latest project current --pretty
-npx desainpakeai-cli@latest context --pretty
-npx desainpakeai-cli@latest guide get --topic prototype-authoring --raw
+dpai auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
+dpai project current --pretty
+dpai context --pretty
+dpai guide get --topic prototype-authoring --raw
 ```
 
 Remote guides are served by the DesainPakeAI application, so guide updates do
@@ -27,8 +36,8 @@ guide bundled with the selected CLI version as an offline fallback.
 Pass `--workspace` only for explicit filesystem-local work:
 
 ```bash
-npx desainpakeai-cli@latest context --workspace /path/to/workspace
-npx desainpakeai-cli@latest file read --workspace /path/to/workspace --path src/pages/home.page.html --full
+dpai context --workspace /path/to/workspace
+dpai file read --workspace /path/to/workspace --path src/pages/home.page.html --full
 ```
 
 ## Comfortable authoring without JSON
@@ -38,13 +47,13 @@ preserving the revision guard. Send long HTML or CSS as raw stdin with a Bash
 heredoc:
 
 ```bash
-npx desainpakeai-cli@latest page create \
+dpai page create \
   --id activity \
   --name "Activity" \
   --route /activity \
   --layout app-shell
 
-npx desainpakeai-cli@latest file edit \
+dpai file edit \
   --path src/pages/activity.page.html \
   --before '<!-- agent:page-sections -->' <<'HTML'
 <section data-node-id="activity.feed">
@@ -52,8 +61,8 @@ npx desainpakeai-cli@latest file edit \
 </section>
 HTML
 
-npx desainpakeai-cli@latest preview verify --page activity --pretty
-npx desainpakeai-cli@latest work finish --page activity --pretty
+dpai preview verify --page activity --pretty
+dpai work finish --page activity --pretty
 ```
 
 Use `--content-file section.html` instead of a heredoc when a file-based flow
@@ -62,15 +71,15 @@ is more convenient. `--content` handles short inline changes.
 Design and component work also has native commands:
 
 ```bash
-npx desainpakeai-cli@latest design context --detail compact --section Overview,Components --pretty
-npx desainpakeai-cli@latest token list --type color,spacing --format css
-npx desainpakeai-cli@latest token create --name --color-accent --type color --value "#635bff"
-npx desainpakeai-cli@latest token set --name --color-accent --value "#574ee8"
-npx desainpakeai-cli@latest token delete --name --color-legacy
-npx desainpakeai-cli@latest design set-section --heading Overview --content-file overview.md
-npx desainpakeai-cli@latest component create --id status-pill --tag x-status-pill \
+dpai design context --detail compact --section Overview,Components --pretty
+dpai token list --type color,spacing --format css
+dpai token create --name --color-accent --type color --value "#635bff"
+dpai token set --name --color-accent --value "#574ee8"
+dpai token delete --name --color-legacy
+dpai design set-section --heading Overview --content-file overview.md
+dpai component create --id status-pill --tag x-status-pill \
   --prop tone="Visual tone" --default tone=neutral
-npx desainpakeai-cli@latest review get --review 00000000-0000-4000-8000-000000000000 --output review.png
+dpai review get --review 00000000-0000-4000-8000-000000000000 --output review.png
 ```
 
 List flags may be repeated or comma-separated. File reads and searches support
@@ -82,9 +91,9 @@ complete reference.
 Use the `dpai_...` access key created from **Siapkan CLI** in DesainPakeAI:
 
 ```powershell
-npx desainpakeai-cli@latest auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
-npx desainpakeai-cli@latest auth status --pretty
-npx desainpakeai-cli@latest project current --pretty
+dpai auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
+dpai auth status --pretty
+dpai project current --pretty
 ```
 
 The key is validated through `/api/cli/session`. Workspace commands use
@@ -97,9 +106,9 @@ directory. Use the same release URL with `auth logout` to remove them.
 Every operation is also available through the stable tool-name interface:
 
 ```bash
-npx desainpakeai-cli@latest tools
-npx desainpakeai-cli@latest call get_project_context
-npx desainpakeai-cli@latest call create_page --input @create-page.json
+dpai tools
+dpai call get_project_context
+dpai call create_page --input @create-page.json
 ```
 
 Do not handwrite JSON in the shell. `--input @file.json` remains an escape hatch
