@@ -1,8 +1,8 @@
 # DesainPakeAI CLI
 
 Standalone, agent-friendly CLI for the dependency-free DesainPakeAI prototype
-workspace. It exposes the complete workspace MCP operation surface as
-deterministic CLI commands and packages the authoring workflow as a Codex skill.
+workspace. It exposes the complete workspace operation surface as deterministic
+CLI commands and packages the authoring workflow as a Codex skill.
 
 ## Run the latest CLI
 
@@ -62,7 +62,7 @@ is more convenient. `--content` handles short inline changes. The strict
 
 ## Login and active project
 
-Use the same `dpai_...` API key created for the DesainPakeAI MCP connection:
+Use the `dpai_...` access key created from **Siapkan CLI** in DesainPakeAI:
 
 ```powershell
 npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
@@ -70,9 +70,8 @@ npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/rele
 npx --yes --prefer-online https://github.com/mfatihrabbani/desainpakeai-cli/releases/latest/download/desainpakeai-cli.tgz project current --pretty
 ```
 
-The key is validated through the non-MCP `/api/cli/session` endpoint. Workspace
-commands use `/api/cli/workspace/:operation`; they do not initialize or tunnel
-through MCP. The live
+The key is validated through `/api/cli/session`. Workspace commands use
+`/api/cli/workspace/:operation` and do not require a persistent connection. The live
 response identifies the active project by ID, name, and role. Switching the
 active project in DesainPakeAI is reflected by the next `project current` call.
 Credentials are stored outside the repository in the user configuration
@@ -98,7 +97,7 @@ sections.
 Remote mode is the default and targets the active project selected in the
 DesainPakeAI application. It preserves project access checks, revision guards,
 database persistence, Canvas events, and page-working state through an
-authenticated non-MCP command API.
+authenticated command API.
 
 Local mode remains available with `--workspace <path>` or `DPAI_WORKSPACE`.
 `get_review` always uses the stored API key and active project, then writes the

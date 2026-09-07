@@ -15,7 +15,7 @@ import { createWorkspaceFixture } from "./workspace-fixture.js";
 
 const execFileAsync = promisify(execFile);
 
-test("exposes every MCP workspace operation", () => {
+test("exposes every workspace operation through the CLI", () => {
   assert.deepEqual(TOOL_NAMES, [
     "get_project_context",
     "get_review",
@@ -166,7 +166,7 @@ test("paginates requested design sections with an MCP-compatible cursor", () => 
   assert.equal(second.nextCursor, null);
 });
 
-test("runs create, edit, verify, finish, and export without MCP", async () => {
+test("runs create, edit, verify, finish, and export through the CLI", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "dpai-cli-"));
   await createWorkspaceFixture(root);
   const options = { workspaceRoot: root };
@@ -273,7 +273,7 @@ test("downloads a visual review through ordinary HTTP", async () => {
   }
 });
 
-test("logs in with an MCP API key and reports the live active project", async () => {
+test("logs in with a CLI access key and reports the live active project", async () => {
   const apiKeyId = randomUUID();
   const projectId = randomUUID();
   const configRoot = await mkdtemp(resolve(tmpdir(), "dpai-cli-auth-"));

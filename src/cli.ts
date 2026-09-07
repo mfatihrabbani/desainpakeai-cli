@@ -9,7 +9,7 @@ import { CliConfigurationError } from "./errors.js";
 import { executeRemoteTool } from "./remote-workspace-client.js";
 import { executeTool, TOOL_NAMES, UnknownToolError } from "./tool-registry.js";
 
-const VERSION = "0.1.1";
+const VERSION = "0.1.2";
 
 const ALIASES: Record<string, string> = {
   "component create": "create_component",
@@ -508,7 +508,7 @@ Options:
   --expected-revision <id> Optional explicit revision for native flags
   --export-output <path>   Override export output path
   --api-url <url>          DesainPakeAI application URL
-  --api-key <dpai_key>     Existing DesainPakeAI MCP API key
+  --api-key <dpai_key>     DesainPakeAI CLI access key
   --pretty                 Pretty-print JSON
   --raw                    Print a string result without JSON quoting
   --help                   Show help
