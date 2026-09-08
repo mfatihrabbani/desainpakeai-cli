@@ -65,6 +65,21 @@ with `--content-file`. For several related replacements, use
 `file patch --patch-file <diff>` or pipe a standard unified diff through stdin.
 Prefer UTF-8 files for non-ASCII content on Windows PowerShell 5.1.
 
+## Show page progress section by section
+
+For a new page, expose real Canvas progress with two sequential commands per
+section. First insert only one visible section shell before
+`<!-- agent:page-sections -->`. Give it the final semantic element, stable
+`data-node-id`, outer inline layout or surface, enough block size to render, and
+a unique nested `<!-- agent:<page>.<section>-content -->` anchor. Then insert
+that section's content before its nested anchor and keep the anchor for future
+partial edits.
+
+Finish one section before creating the next, carry forward the revision from
+every command, and never run page mutations in parallel. Each successful edit
+is persisted and becomes a Canvas progress update. Run `preview verify` only
+after the page is complete unless a mutation reports a problem.
+
 ## Author HTML and CSS together
 
 Write the markup and its styling in the same edit. Prefer `style="..."`
