@@ -29,10 +29,12 @@ dpai project current --pretty
 dpai context --pretty
 ```
 
-The bundled skill owns the core authoring workflow. Optional domain guides are
-served by the DesainPakeAI application and can be fetched only when relevant,
-for example `dpai guide get --topic design-quality --raw`. Explicit local
-workspace mode uses the matching guide bundled with the selected CLI version.
+The bundled skill routes authoring through the CLI guide source of truth. It
+fetches `dpai guide get --topic workspace-authoring --raw` once before the first
+source mutation. Optional domain guides are fetched only when relevant, for
+example `dpai guide get --topic design-quality --raw`. Explicit local workspace
+mode and fallback for older applications use the matching guide bundled with
+the selected CLI version.
 
 Pass `--workspace` only for explicit filesystem-local work:
 

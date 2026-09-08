@@ -47,10 +47,12 @@ test("returns bundled on-demand domain guides for explicit local work", async ()
   const root = await mkdtemp(resolve(tmpdir(), "dpai-cli-guide-"));
   await createWorkspaceFixture(root);
   const result = await executeTool("get_guide", {
-    topic: "design-quality",
+    topic: "workspace-authoring",
   }, { workspaceRoot: root });
   assert.equal(typeof result, "string");
-  assert.match(String(result), /DesainPakeAI design quality/i);
+  assert.match(String(result), /DesainPakeAI workspace authoring/i);
+  assert.match(String(result), /@font-face/i);
+  assert.match(String(result), /unintended overlap/i);
 
   const cli = await execFileAsync(process.execPath, [
     "--import",
@@ -59,7 +61,7 @@ test("returns bundled on-demand domain guides for explicit local work", async ()
     "guide",
     "get",
     "--topic",
-    "design-quality",
+    "workspace-authoring",
     "--workspace",
     root,
     "--raw",
@@ -72,7 +74,7 @@ test("returns bundled on-demand domain guides for explicit local work", async ()
       DPAI_WORKSPACE: "",
     },
   });
-  assert.match(cli.stdout, /DesainPakeAI design quality/);
+  assert.match(cli.stdout, /DesainPakeAI workspace authoring/);
 });
 
 test("pulls the current guide from the remote application", async () => {

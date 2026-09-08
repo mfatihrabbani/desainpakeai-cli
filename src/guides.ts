@@ -1,5 +1,37 @@
 export const DESIGN_QUALITY_GUIDE_TOPIC = "design-quality" as const;
 
+export const WORKSPACE_AUTHORING_GUIDE_TOPIC = "workspace-authoring" as const;
+
+const WORKSPACE_AUTHORING_GUIDE = `# DesainPakeAI workspace authoring
+
+Read after project context and before the first source mutation. This is the minimum single-html@1 contract, not an aesthetic guide.
+
+## Runtime and file ownership
+
+- Use dependency-free HTML, CSS, and JavaScript: no React, JSX, TSX, package imports, Tailwind, inline handlers, or host classes.
+- Pages own route content, composition, and workflow; new page styling stays inline. Layouts own shared chrome and slots. Components own one coherent reusable, stateful, or editable concept. Components control internals; consumers control placement and width.
+- Register modules with their CLI commands. Never edit prototype.json or .prototype directly. Preserve public props, slots, data-node-id, data-component, data-part, data-action, and bridge identifiers.
+
+## CSS and global fonts
+
+- Compiled CSS is global. Namespace layouts l-<layout> and components c-<component>; no generic selectors or cross-component reach.
+- Keep tokens and the minimal global baseline in the registered runtime stylesheet, normally src/styles/tokens.css. Put --font-* stacks in :root and apply the default once with html { font-family: var(--font-body); }; do not repeat it per module. Use token commands so DESIGN.md and CSS stay synchronized.
+- A font CDN is allowed only when requested or the project server or registry lacks the face. Declare one global @font-face with HTTPS WOFF2 and font-display: swap. Order sources local/project server, approved CDN, then system fallback in --font-*. No JavaScript loader and no other external-library exception.
+- Keep component/layout styles beside markup and mutate related markup and CSS together. States, pseudo-classes, and media queries stay in the owning namespaced module.
+
+## JavaScript and state
+
+- Prefer native HTML/CSS. If needed, put one IIFE script after markup and use delegated namespaced data-action hooks.
+- Keep visible state on the component root with data-state plus matching aria-*. Scope through closest('[data-component="..."]'); never capture only the first instance or require global DOM ids.
+- Use bubbling CustomEvent for page/layout coordination. Keep fixtures deterministic, absence safe, and free of implicit globals or unrelated window state.
+
+## Required completion checklist
+
+- Source: correct owner, one semantic component root, namespaced selectors/actions, stable hooks, and collision-free repeated instances.
+- Geometry: inspect target, narrow, and wide widths. Check no unintended overlap, clipping, horizontal scroll, off-canvas control, sticky cover, or pointer-target collision with long text, unbreakable values, primary font, and fallback font.
+- Behavior: every visible action works or is disabled; state and aria-* agree; forward, reverse, repeated, and keyboard paths work.
+- Run preview verify, fix diagnostics, and rerun it. Compilation cannot prove geometry, behavior, or CDN availability; browser-check them when available and mark every unavailable check Not verified before work finish.`;
+
 const DESIGN_QUALITY_GUIDE = `# DesainPakeAI design quality
 
 Ground visual decisions in the product, DESIGN.md, supplied content, and existing components.
@@ -279,6 +311,7 @@ This guide owns handoff scope, design-system mapping, implementation, and parity
 Finish with a mapping of prototype source to target files, design-system roles saved, pages implemented, deliberate adaptations, and remaining parity gaps.`;
 
 export const GUIDE_TOPICS = [
+  WORKSPACE_AUTHORING_GUIDE_TOPIC,
   DESIGN_QUALITY_GUIDE_TOPIC,
   "accessibility",
   "layout-responsive",
@@ -298,6 +331,7 @@ export const GUIDE_TOPICS = [
 type GuideTopic = typeof GUIDE_TOPICS[number];
 
 export const GUIDE_CATALOG = [
+  { topic: WORKSPACE_AUTHORING_GUIDE_TOPIC, useWhen: "Required before source mutation." },
   { topic: DESIGN_QUALITY_GUIDE_TOPIC, useWhen: "Visual design decisions." },
   { topic: "accessibility", useWhen: "Keyboard, focus, forms, ARIA, or zoom." },
   { topic: "layout-responsive", useWhen: "Responsive layout, overflow, RTL, or long content." },
@@ -315,11 +349,12 @@ export const GUIDE_CATALOG = [
 ] as const satisfies ReadonlyArray<{ topic: GuideTopic; useWhen: string }>;
 
 export const GUIDE_CATALOG_DESCRIPTION = [
-  "Choose one guide by when it applies; never preload all topics. Reuse it within the continuous task:",
+  "Read workspace-authoring before source mutation; never preload optional guides:",
   ...GUIDE_CATALOG.map(({ topic, useWhen }) => `- ${topic}: ${useWhen}`),
 ].join("\n");
 
 export const GUIDES: Record<GuideTopic, string> = {
+  [WORKSPACE_AUTHORING_GUIDE_TOPIC]: WORKSPACE_AUTHORING_GUIDE,
   [DESIGN_QUALITY_GUIDE_TOPIC]: DESIGN_QUALITY_GUIDE,
   accessibility: ACCESSIBILITY_GUIDE,
   "layout-responsive": LAYOUT_RESPONSIVE_GUIDE,

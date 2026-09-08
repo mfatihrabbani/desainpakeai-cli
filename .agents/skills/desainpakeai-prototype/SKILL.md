@@ -26,22 +26,28 @@ edits. Repeat setup only when the session, target project, or connection changes
    to run `dpai auth login --api-url <url> --api-key <dpai_key>`.
 4. Run `dpai project current --pretty` and confirm it is the target project.
 5. Run `dpai context --pretty` and retain its latest revision.
+6. Before the first workspace source mutation, run
+   `dpai guide get --topic workspace-authoring --raw` once and reuse it for the
+   continuous task. Skip this step when the task remains read-only.
 
 Treat a successful authenticated CLI command as the connection signal. Creating
 or copying an API key alone does not prove that the coding agent is connected.
 Do not initialize, call, or wait for an MCP handshake endpoint.
 
-This skill owns the core authoring workflow; do not fetch a separate baseline
-authoring guide. Use `--workspace <path>` only when the user explicitly requests
-filesystem-local work. Carry forward the revision returned by every successful
-mutation.
+The CLI `workspace-authoring` guide is the source of truth for the minimum
+single-HTML authoring contract. This skill only routes when to fetch it; do not
+copy or infer a competing CSS, font, component, or JavaScript contract here.
+Use `--workspace <path>` only when the user explicitly requests filesystem-local
+work. Carry forward the revision returned by every successful mutation.
 
 ## Guide catalog and timing
 
-Guides are optional task-specific references. Pull only one immediately before
-the first decision it covers, reuse it for that continuous task, and fetch
-another only when a new unresolved risk appears. Never preload all guides.
+`workspace-authoring` is required once before source mutation. All other guides
+are optional task-specific references. Pull one immediately before the first
+decision it covers, reuse it for that continuous task, and fetch another only
+when a new unresolved risk appears. Never preload all optional guides.
 
+- `workspace-authoring` - required before workspace source mutation.
 - `design-quality` - substantive visual design decisions.
 - `accessibility` - keyboard, focus, forms, ARIA, or zoom.
 - `layout-responsive` - responsive layout, overflow, RTL, or long content.
@@ -57,17 +63,14 @@ another only when a new unresolved risk appears. Never preload all guides.
 - `variant-exploration` - only for user-requested design variants.
 - `prototype-to-codebase` - only for a user-requested codebase handoff.
 
-Fetch a guide with `dpai guide get --topic <topic> --raw` only when its trigger
-matches the current task. Fetch `design-quality` before substantive visual
-design, but skip it for non-visual maintenance, canvas positioning, export-only
-work, manifest inspection, and narrow fixes. Do not fetch user-gated guides
-based on inference.
+Fetch optional guides with `dpai guide get --topic <topic> --raw` only when
+their trigger matches. Fetch `design-quality` before substantive visual design,
+but skip it for non-visual maintenance, canvas positioning, export-only work,
+manifest inspection, and narrow fixes. Do not fetch user-gated guides based on
+inference.
 
-## Authoring contract
+## Operational invariants
 
-- Keep workspace source dependency-free HTML, CSS, and JavaScript. Never add
-  React, JSX, TSX, framework or package imports, runtime dependencies, Tailwind
-  directives, or host-only utility classes.
 - Before visual UI work, run `dpai design context --pretty` and
   `dpai token list`. Treat DESIGN.md guidance, registered components, and
   runtime tokens as constraints when present. Keep exploratory values
@@ -87,8 +90,9 @@ based on inference.
   or wrapper. Give icon-only controls an `aria-label` and mark decorative icons
   `aria-hidden="true"`.
 - After completing a page, run `dpai preview verify --page <page-id>`, fix any
-  applicable diagnostics, verify again if needed, then run
-  `dpai work finish --page <page-id>`.
+  applicable diagnostics, verify again if needed, perform the rendered checks
+  required by `workspace-authoring`, then run `dpai work finish --page
+  <page-id>`.
 
 ## Prefer native commands
 
@@ -150,19 +154,6 @@ Finish one section before creating the next, carry forward the revision from
 every command, and never run page mutations in parallel. Each successful edit
 is persisted and becomes a Canvas progress update. Run `preview verify` only
 after the page is complete unless a mutation reports a problem.
-
-## Author HTML and CSS together
-
-Write the markup and its styling in the same edit. Prefer `style="..."`
-attributes for element-specific prototype styling; do not create a separate
-CSS-first pass before writing the HTML. Keep design-token references such as
-`var(--color-accent)` inside those inline declarations when available.
-
-Use a local `<style>` block only for behavior that inline declarations cannot
-express: pseudo-classes or pseudo-elements, media queries, keyframes, or rules
-shared by several elements. When a `<style>` block is necessary, submit it with
-the related markup in the same CLI mutation instead of editing styles and HTML
-in separate rounds.
 
 Repeat list flags or pass comma-separated values. Use `--input @payload.json`
 only for an atomic batch that mixes edit modes, an atomic multi-token batch,
