@@ -112,11 +112,17 @@ and validates the operation payload and reads the latest revision automatically.
 <prefix> work finish --page <page-id>
 ```
 
-For long HTML, CSS, JavaScript, or Markdown, use `--content-file <path>` or pipe
-raw text through stdin. For exact multiline replacement, use `--replace-file`
-with `--content-file`. For several related replacements, use
-`file patch --patch-file <diff>` or pipe a standard unified diff through stdin.
-Prefer UTF-8 files for non-ASCII content on Windows PowerShell 5.1.
+For long HTML, CSS, JavaScript, or Markdown, pipe raw text through stdin. Use a
+short, shell-safe `--before`, `--after`, or `--replace` value only as the unique
+anchor. For exact multiline replacement, pipe a standard unified diff into
+`dpai file patch --path <path>`; one diff may contain several related hunks and
+is applied atomically. This is the default agent workflow and does not require
+creating temporary old/new files.
+
+Use `--content-file`, `--replace-file`, or `--patch-file` only when the shell
+cannot preserve the payload exactly, when the artifact is useful for debugging,
+or when Windows PowerShell 5.1 may corrupt non-ASCII stdin. Keep those files
+UTF-8 and remove task-only temporary files after a successful verified edit.
 
 ## Show page progress section by section
 
