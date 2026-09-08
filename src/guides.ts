@@ -31,7 +31,6 @@ Read after project context and before the first source mutation. This is the min
 - Geometry: inspect target, narrow, and wide widths. Check no unintended overlap, clipping, horizontal scroll, off-canvas control, sticky cover, or pointer-target collision with long text, unbreakable values, primary font, and fallback font.
 - Behavior: every visible action works or is disabled; state and aria-* agree; forward, reverse, repeated, and keyboard paths work.
 - Run preview verify, fix diagnostics, and rerun it. Compilation cannot prove geometry, behavior, or CDN availability; browser-check them when available and mark every unavailable check Not verified before work finish.`;
-
 const DESIGN_QUALITY_GUIDE = `# DesainPakeAI design quality
 
 Ground visual decisions in the product, DESIGN.md, supplied content, and existing components.

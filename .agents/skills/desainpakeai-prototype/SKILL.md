@@ -15,20 +15,21 @@ skill synchronization.
 
 ## Start a continuous task
 
-Run this setup once when starting a new continuous task. Reuse the confirmed
-CLI, authentication, project, context, and latest revision across follow-up
-edits. Repeat setup only when the session, target project, or connection changes.
+Reuse confirmed setup across follow-up edits while the session, target project,
+and connection stay unchanged.
 
-1. Run `dpai --version` first. Do not install immediately.
-2. If the command is unavailable, run `npm install --global desainpakeai-cli@latest`,
-   then run `dpai --version` again.
-3. Run `dpai auth status --pretty`. If authentication is missing, ask the user
-   to run `dpai auth login --api-url <url> --api-key <dpai_key>`.
-4. Run `dpai project current --pretty` and confirm it is the target project.
-5. Run `dpai context --pretty` and retain its latest revision.
+1. Run `<prefix> --version` first. If the command is unavailable, run
+   `npm install --global desainpakeai-cli@latest`, then check the version again.
+   Do not reinstall or update during every ordinary task.
+2. Use that binary for the rest of the continuous task.
+3. Run `<prefix> auth status --pretty` once. If authentication is missing, ask
+   the user to run `<prefix> auth login --api-url <url> --api-key <dpai_key>`,
+   then run `<prefix> auth status --pretty` once more to verify the login.
+4. Run `<prefix> project current --pretty` and confirm it is the target project.
+5. Run `<prefix> context --pretty` and retain its latest revision.
 6. Before the first workspace source mutation, run
-   `dpai guide get --topic workspace-authoring --raw` once and reuse it for the
-   continuous task. Skip this step when the task remains read-only.
+   `<prefix> guide get --topic workspace-authoring --raw` once and reuse it for
+   the continuous task. Skip this step when the task remains read-only.
 
 Treat a successful authenticated CLI command as the connection signal. Creating
 or copying an API key alone does not prove that the coding agent is connected.
@@ -63,7 +64,7 @@ when a new unresolved risk appears. Never preload all optional guides.
 - `variant-exploration` - only for user-requested design variants.
 - `prototype-to-codebase` - only for a user-requested codebase handoff.
 
-Fetch optional guides with `dpai guide get --topic <topic> --raw` only when
+Fetch optional guides with `<prefix> guide get --topic <topic> --raw` only when
 their trigger matches. Fetch `design-quality` before substantive visual design,
 but skip it for non-visual maintenance, canvas positioning, export-only work,
 manifest inspection, and narrow fixes. Do not fetch user-gated guides based on
@@ -71,8 +72,8 @@ inference.
 
 ## Operational invariants
 
-- Before visual UI work, run `dpai design context --pretty` and
-  `dpai token list`. Treat DESIGN.md guidance, registered components, and
+- Before visual UI work, run `<prefix> design context --pretty` and
+  `<prefix> token list`. Treat DESIGN.md guidance, registered components, and
   runtime tokens as constraints when present. Keep exploratory values
   page-local when they are absent.
 - Reuse a registered component when available. Create or register a component
@@ -89,9 +90,9 @@ inference.
 - Use `<iconify-icon icon="collection:name">` directly without adding a loader
   or wrapper. Give icon-only controls an `aria-label` and mark decorative icons
   `aria-hidden="true"`.
-- After completing a page, run `dpai preview verify --page <page-id>`, fix any
+- After completing a page, run `<prefix> preview verify --page <page-id>`, fix
   applicable diagnostics, verify again if needed, perform the rendered checks
-  required by `workspace-authoring`, then run `dpai work finish --page
+  required by `workspace-authoring`, then run `<prefix> work finish --page
   <page-id>`.
 
 ## Prefer native commands
@@ -103,17 +104,17 @@ For `page create`, pass routes without a leading slash, such as
 conversion on Windows.
 
 ```text
-dpai design context --detail compact --section Overview,Components --pretty
-dpai token list --type color,spacing --format css
-dpai token create --name --color-accent --type color --value "#635bff"
-dpai token set --name --color-accent --value "#574ee8"
-dpai token delete --name --color-legacy
-dpai design set-section --heading Overview --content-file overview.md
-dpai component create --id status-pill --tag x-status-pill --prop tone="Visual tone" --default tone=neutral
-dpai review get --review <uuid> --output review.png
-dpai work status --pretty
-dpai preview verify --page <page-id>
-dpai work finish --page <page-id>
+<prefix> design context --detail compact --section Overview,Components --pretty
+<prefix> token list --type color,spacing --format css
+<prefix> token create --name --color-accent --type color --value "#635bff"
+<prefix> token set --name --color-accent --value "#574ee8"
+<prefix> token delete --name --color-legacy
+<prefix> design set-section --heading Overview --content-file overview.md
+<prefix> component create --id status-pill --tag x-status-pill --prop tone="Visual tone" --default tone=neutral
+<prefix> review get --review <uuid> --output review.png
+<prefix> work status --pretty
+<prefix> preview verify --page <page-id>
+<prefix> work finish --page <page-id>
 ```
 
 For long HTML, CSS, JavaScript, or Markdown, pipe raw text through stdin. Use a
@@ -161,5 +162,5 @@ component recipes, the complete omissions list, or low-level integration
 debugging. Generate the file programmatically and never compose JSON inline in
 the shell.
 
-Run every DesainPakeAI operation through `dpai` and use command output for
+Run every DesainPakeAI operation through `<prefix>` and use command output for
 verification, completion, revision conflicts, and recovery.
