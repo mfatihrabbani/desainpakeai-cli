@@ -51,6 +51,7 @@ test("returns bundled on-demand domain guides for explicit local work", async ()
   }, { workspaceRoot: root });
   assert.equal(typeof result, "string");
   assert.match(String(result), /DesainPakeAI workspace authoring/i);
+  assert.match(String(result), /Reuse across follow-ups for the same session, project, and runtime/i);
   assert.match(String(result), /@font-face/i);
   assert.match(String(result), /unintended overlap/i);
 

@@ -4,18 +4,18 @@ export const WORKSPACE_AUTHORING_GUIDE_TOPIC = "workspace-authoring" as const;
 
 const WORKSPACE_AUTHORING_GUIDE = `# DesainPakeAI workspace authoring
 
-Read after project context and before the first source mutation. This is the minimum single-html@1 contract, not an aesthetic guide.
+Read once before source mutation. Reuse across follow-ups for the same session, project, and runtime; refetch only if context is lost or changes. Minimum single-html@1 contract, not aesthetic guidance.
 
 ## Runtime and file ownership
 
 - Use dependency-free HTML, CSS, and JavaScript: no React, JSX, TSX, package imports, Tailwind, inline handlers, or host classes.
-- Pages own route content, composition, and workflow; new page styling stays inline. Layouts own shared chrome and slots. Components own one coherent reusable, stateful, or editable concept. Components control internals; consumers control placement and width.
-- Register modules with their CLI commands. Never edit prototype.json or .prototype directly. Preserve public props, slots, data-node-id, data-component, data-part, data-action, and bridge identifiers.
+- Pages own route content and workflow; new page styles stay inline. Layouts own shared chrome and slots. Components own one coherent reusable, stateful, or editable concept. Components own internals; consumers own placement.
+- Register modules with CLI commands; never edit manifests directly. Preserve public props, slots, data-node-id, data-component, data-part, data-action, and bridge identifiers.
 
 ## CSS and global fonts
 
 - Compiled CSS is global. Namespace layouts l-<layout> and components c-<component>; no generic selectors or cross-component reach.
-- Keep tokens and the minimal global baseline in the registered runtime stylesheet, normally src/styles/tokens.css. Put --font-* stacks in :root and apply the default once with html { font-family: var(--font-body); }; do not repeat it per module. Use token commands so DESIGN.md and CSS stay synchronized.
+- Keep tokens and global baseline in registered runtime CSS, normally src/styles/tokens.css. Put --font-* stacks in :root; apply html { font-family: var(--font-body); } once. Use token commands to synchronize DESIGN.md and CSS.
 - A font CDN is allowed only when requested or the project server or registry lacks the face. Declare one global @font-face with HTTPS WOFF2 and font-display: swap. Order sources local/project server, approved CDN, then system fallback in --font-*. No JavaScript loader and no other external-library exception.
 - Keep component/layout styles beside markup and mutate related markup and CSS together. States, pseudo-classes, and media queries stay in the owning namespaced module.
 

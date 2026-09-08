@@ -28,8 +28,10 @@ and connection stay unchanged.
 4. Run `<prefix> project current --pretty` and confirm it is the target project.
 5. Run `<prefix> context --pretty` and retain its latest revision.
 6. Before the first workspace source mutation, run
-   `<prefix> guide get --topic workspace-authoring --raw` once and reuse it for
-   the continuous task. Skip this step when the task remains read-only.
+   `<prefix> guide get --topic workspace-authoring --raw` only when that guide
+   is not already retained for the same session, project, and runtime. Reuse it
+   across follow-up tasks. Refetch only when that context is lost or changes.
+   Skip this step when the task remains read-only.
 
 Treat a successful authenticated CLI command as the connection signal. Creating
 or copying an API key alone does not prove that the coding agent is connected.
@@ -43,10 +45,11 @@ work. Carry forward the revision returned by every successful mutation.
 
 ## Guide catalog and timing
 
-`workspace-authoring` is required once before source mutation. All other guides
-are optional task-specific references. Pull one immediately before the first
-decision it covers, reuse it for that continuous task, and fetch another only
-when a new unresolved risk appears. Never preload all optional guides.
+`workspace-authoring` is required once before source mutation and is retained
+across follow-up tasks for the same session, project, and runtime. All other
+guides are optional task-specific references. Pull one immediately before the
+first decision it covers, reuse it for that continuous task, and fetch another
+only when a new unresolved risk appears. Never preload all optional guides.
 
 - `workspace-authoring` - required before workspace source mutation.
 - `design-quality` - substantive visual design decisions.
