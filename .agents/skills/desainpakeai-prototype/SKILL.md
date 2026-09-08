@@ -28,10 +28,6 @@ and connection stay unchanged.
    then run `<prefix> auth status --pretty` once more to verify the login.
 4. Run `<prefix> project current --pretty` and confirm it is the target project.
 5. Run `<prefix> context --pretty` and retain its latest revision.
-6. Run `<prefix> guide get --topic prototype-authoring --raw` before the first
-   mutation and follow the returned guide as the current source of truth.
-7. Pull another guide only when the active guide says it applies. Never preload
-   every guide.
 
 Treat a successful authenticated CLI command as the connection signal. Creating
 or copying an API key alone does not prove that the coding agent is connected.
@@ -39,6 +35,63 @@ Do not initialize, call, or wait for an MCP handshake endpoint.
 
 Use `--workspace <path>` only when the user explicitly requests filesystem-local
 work. Carry forward the revision returned by every successful mutation.
+
+This skill owns the core authoring workflow; do not fetch a separate baseline
+authoring guide.
+
+## Guide catalog and timing
+
+Guides are optional task-specific references. Pull only one immediately before
+the first decision it covers, reuse it for that continuous task, and fetch
+another only when a new unresolved risk appears. Never preload all guides.
+
+- `design-quality` - substantive visual design decisions.
+- `accessibility` - keyboard, focus, forms, ARIA, or zoom.
+- `layout-responsive` - responsive layout, overflow, RTL, or long content.
+- `typography` - typography, wrapping, truncation, or bidirectional text.
+- `color-system` - tokens, themes, status colors, or contrast.
+- `product-writing` - labels, errors, empty states, or localization.
+- `ui-polish-motion` - surfaces, icons, motion, or visual states.
+- `prototype-interactions` - modals, selects, filters, forms, or stateful UI.
+- `evidence-and-reference` - external pages, screenshots, or supplied references.
+- `image-to-prototype` - reconstructing a supplied UI image or screenshot.
+- `interface-review` - only for a user-requested interface review.
+- `component-stress-test` - only for a user-requested stress test.
+- `variant-exploration` - only for user-requested design variants.
+- `prototype-to-codebase` - only for a user-requested codebase handoff.
+
+Fetch a guide with `<prefix> guide get --topic <topic> --raw` only when its
+trigger matches the current task. Fetch `design-quality` before substantive
+visual design, but skip it for non-visual maintenance, canvas positioning,
+export-only work, manifest inspection, and narrow fixes. Do not fetch user-gated
+guides based on inference.
+
+## Authoring contract
+
+- Keep workspace source dependency-free HTML, CSS, and JavaScript. Never add
+  React, JSX, TSX, framework or package imports, runtime dependencies, Tailwind
+  directives, or host-only utility classes.
+- Before visual UI work, run `<prefix> design context --pretty` and
+  `<prefix> token list`. Treat DESIGN.md guidance, registered components, and
+  runtime tokens as constraints when present. Keep exploratory values
+  page-local when they are absent.
+- Reuse a registered component when available. Create or register a component
+  only when the user explicitly requests it or asks for reusable extraction;
+  otherwise keep the implementation page-owned.
+- Work on one page at a time. A page-create command only creates its skeleton
+  and Canvas frame. Add one visual or workflow group per initial file edit and
+  never run page mutations in parallel.
+- Create or change persistent tokens only after the user selects a direction or
+  explicitly asks to save them.
+- Preserve stable `data-node-id`, `data-component`, `data-part`, `data-action`,
+  bridge attributes, and public props. Prefer an existing token over a
+  hardcoded reusable value.
+- Use `<iconify-icon icon="collection:name">` directly without adding a loader
+  or wrapper. Give icon-only controls an `aria-label` and mark decorative icons
+  `aria-hidden="true"`.
+- After completing a page, run `<prefix> preview verify --page <page-id>`, fix
+  applicable diagnostics, verify again if needed, then run
+  `<prefix> work finish --page <page-id>`.
 
 ## Prefer native commands
 
@@ -99,5 +152,5 @@ component recipes, the complete omissions list, or low-level integration
 debugging. Generate the file programmatically and never compose JSON inline in
 the shell.
 
-Run every DesainPakeAI operation through `<prefix>` and follow the live CLI guide
-for verification, completion, revision conflicts, and recovery.
+Run every DesainPakeAI operation through `<prefix>` and use command output for
+verification, completion, revision conflicts, and recovery.

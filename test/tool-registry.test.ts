@@ -43,14 +43,14 @@ test("exposes every workspace operation through the CLI", () => {
   ]);
 });
 
-test("returns bundled on-demand authoring guides for explicit local work", async () => {
+test("returns bundled on-demand domain guides for explicit local work", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "dpai-cli-guide-"));
   await createWorkspaceFixture(root);
   const result = await executeTool("get_guide", {
-    topic: "prototype-authoring",
+    topic: "design-quality",
   }, { workspaceRoot: root });
   assert.equal(typeof result, "string");
-  assert.match(String(result), /dependency-free HTML, CSS, and JavaScript/i);
+  assert.match(String(result), /DesainPakeAI design quality/i);
 
   const cli = await execFileAsync(process.execPath, [
     "--import",
@@ -84,9 +84,9 @@ test("pulls the current guide from the remote application", async () => {
       request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
       request.on("end", () => accept(Buffer.concat(chunks).toString("utf8")));
     })) as { input: unknown };
-    assert.deepEqual(body.input, { topic: "prototype-authoring" });
+    assert.deepEqual(body.input, { topic: "design-quality" });
     response.setHeader("Content-Type", "application/json");
-    response.end(JSON.stringify("# Current remote authoring guide"));
+    response.end(JSON.stringify("# Current remote design guide"));
   });
   await new Promise<void>((accept) => server.listen(0, "127.0.0.1", accept));
   try {
@@ -99,7 +99,7 @@ test("pulls the current guide from the remote application", async () => {
       "guide",
       "get",
       "--topic",
-      "prototype-authoring",
+      "design-quality",
       "--raw",
     ], {
       cwd: resolve("."),
@@ -110,7 +110,7 @@ test("pulls the current guide from the remote application", async () => {
         DPAI_WORKSPACE: "",
       },
     });
-    assert.equal(cli.stdout.trim(), "# Current remote authoring guide");
+    assert.equal(cli.stdout.trim(), "# Current remote design guide");
   } finally {
     await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept()));
   }
@@ -132,12 +132,12 @@ test("falls back to the bundled guide when an older app lacks the guide operatio
     const address = server.address();
     assert.ok(address && typeof address === "object");
     const guide = await executeRemoteTool("get_guide", {
-      topic: "prototype-authoring",
+      topic: "design-quality",
     }, {
       apiKey: "dpai_legacy_app",
       apiUrl: `http://127.0.0.1:${address.port}`,
     });
-    assert.match(String(guide), /dependency-free HTML, CSS, and JavaScript/i);
+    assert.match(String(guide), /DesainPakeAI design quality/i);
   } finally {
     await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept()));
   }

@@ -26,12 +26,12 @@ Log in once, then omit `--workspace` to target the active PostgreSQL project:
 dpai auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
 dpai project current --pretty
 dpai context --pretty
-dpai guide get --topic prototype-authoring --raw
 ```
 
-Remote guides are served by the DesainPakeAI application, so guide updates do
-not require a new CLI or skill release. Explicit local workspace mode uses the
-guide bundled with the selected CLI version as an offline fallback.
+The bundled skill owns the core authoring workflow. Optional domain guides are
+served by the DesainPakeAI application and can be fetched only when relevant,
+for example `dpai guide get --topic design-quality --raw`. Explicit local
+workspace mode uses the matching guide bundled with the selected CLI version.
 
 Pass `--workspace` only for explicit filesystem-local work:
 
