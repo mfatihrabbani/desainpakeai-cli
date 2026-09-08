@@ -1,28 +1,4 @@
-export const AUTHORING_GUIDE_TOPIC = "prototype-authoring" as const;
-export const LEGACY_AUTHORING_GUIDE_TOPIC = "desainpakeai-mcp-instructions" as const;
 export const DESIGN_QUALITY_GUIDE_TOPIC = "design-quality" as const;
-
-const AUTHORING_GUIDE = `# DesainPakeAI prototype authoring
-
-Build through small, visible canvas updates.
-
-Select additional guides from the short Use when descriptions exposed by get_guide. Never preload or batch-read every guide. Pull one guide immediately before the first decision it owns, reuse it for the continuous task, and fetch another only when a new unresolved domain risk appears. Guides marked Use only are user-gated.
-
-Before substantive visual design work, read get_guide({ topic: "design-quality" }) once. It is the sufficient baseline for ordinary visual work. Skip it for non-visual maintenance, canvas positioning, export-only work, manifest inspection, and narrow fixes without visual decisions.
-
-Prototype workspace source is dependency-free HTML, CSS, and JavaScript. Never add React, JSX, TSX, framework or package imports, runtime dependencies, Tailwind directives, or host-only utility classes. Emit every required style and behavior from workspace source.
-
-1. Before visual UI work, call get_design_context and get_tokens. These calls are required even when the project has no design data; available DESIGN.md guidance, registered components, and runtime tokens are constraints when present. When absent, keep exploratory values page-local and do not persist them without user approval.
-2. Reuse a registered component when available. Never call create_component or register a new component unless the user explicitly asks for it or requests reusable extraction. Otherwise keep the requested implementation page-owned.
-3. Work on one page at a time. create_page only creates its skeleton and canvas frame.
-4. During initial authoring, each edit_file adds one visual or workflow group. Use inline style attributes with existing tokens; do not batch a complete page or run page mutations in parallel.
-5. Carry forward the latest revision. Insert page markup before <!-- agent:page-sections -->; append is only an end-of-file operation.
-6. Do not call create_tokens or set_tokens until the user explicitly selects a direction or asks to save tokens. Keep exploration local.
-7. Preserve data-node-id, data-component, data-part, data-action, and bridge attributes. Do not hardcode a reusable value when a matching token exists.
-8. Use <iconify-icon icon="collection:name"> directly (for example lucide:search or hugeicons:searching); the compiler loads Iconify only when used, so do not add a loader or icon wrapper. Give icon-only controls an aria-label and mark decorative icons aria-hidden="true".
-9. After the page is complete, call verify_preview once, fix reported issues, verify again if needed, then call finish_working_on_pages.
-
-For an existing page or component, one edit_file may contain several operations only when they belong to the same visual or workflow concept.`;
 
 const DESIGN_QUALITY_GUIDE = `# DesainPakeAI design quality
 
@@ -303,8 +279,6 @@ This guide owns handoff scope, design-system mapping, implementation, and parity
 Finish with a mapping of prototype source to target files, design-system roles saved, pages implemented, deliberate adaptations, and remaining parity gaps.`;
 
 export const GUIDE_TOPICS = [
-  AUTHORING_GUIDE_TOPIC,
-  LEGACY_AUTHORING_GUIDE_TOPIC,
   DESIGN_QUALITY_GUIDE_TOPIC,
   "accessibility",
   "layout-responsive",
@@ -322,10 +296,8 @@ export const GUIDE_TOPICS = [
 ] as const;
 
 type GuideTopic = typeof GUIDE_TOPICS[number];
-type CanonicalGuideTopic = Exclude<GuideTopic, typeof LEGACY_AUTHORING_GUIDE_TOPIC>;
 
 export const GUIDE_CATALOG = [
-  { topic: AUTHORING_GUIDE_TOPIC, useWhen: "First workspace mutation." },
   { topic: DESIGN_QUALITY_GUIDE_TOPIC, useWhen: "Visual design decisions." },
   { topic: "accessibility", useWhen: "Keyboard, focus, forms, ARIA, or zoom." },
   { topic: "layout-responsive", useWhen: "Responsive layout, overflow, RTL, or long content." },
@@ -340,7 +312,7 @@ export const GUIDE_CATALOG = [
   { topic: "component-stress-test", useWhen: "User-requested stress test only." },
   { topic: "variant-exploration", useWhen: "User-requested variants only." },
   { topic: "prototype-to-codebase", useWhen: "User-requested codebase handoff only." },
-] as const satisfies ReadonlyArray<{ topic: CanonicalGuideTopic; useWhen: string }>;
+] as const satisfies ReadonlyArray<{ topic: GuideTopic; useWhen: string }>;
 
 export const GUIDE_CATALOG_DESCRIPTION = [
   "Choose one guide by when it applies; never preload all topics. Reuse it within the continuous task:",
@@ -348,8 +320,6 @@ export const GUIDE_CATALOG_DESCRIPTION = [
 ].join("\n");
 
 export const GUIDES: Record<GuideTopic, string> = {
-  [AUTHORING_GUIDE_TOPIC]: AUTHORING_GUIDE,
-  [LEGACY_AUTHORING_GUIDE_TOPIC]: AUTHORING_GUIDE,
   [DESIGN_QUALITY_GUIDE_TOPIC]: DESIGN_QUALITY_GUIDE,
   accessibility: ACCESSIBILITY_GUIDE,
   "layout-responsive": LAYOUT_RESPONSIVE_GUIDE,

@@ -59,5 +59,18 @@ async function requestRemoteTool(
       method: "POST",
     },
   );
-  return readJsonResponse(response);
+  try {
+    return await readJsonResponse(response);
+  } catch (error) {
+    if (error instanceof CliConfigurationError && error.code === "INTERNAL_ERROR") {
+      throw new CliConfigurationError(
+        error.code,
+        error.message,
+        error.suggestion
+          ?? `Retry the native '${name}' command once. If it still fails, report the operation and CLI version; do not rewrite the whole workspace file as a workaround.`,
+        { ...error.details, operation: name },
+      );
+    }
+    throw error;
+  }
 }

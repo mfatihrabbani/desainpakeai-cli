@@ -9,6 +9,7 @@ import { WorkspaceToolError } from "./core/server/local-workspace.js";
 import { CliConfigurationError } from "./errors.js";
 import { executeRemoteTool } from "./remote-workspace-client.js";
 import { executeTool, TOOL_NAMES, UnknownToolError } from "./tool-registry.js";
+import { parseUnifiedPatch } from "./unified-patch.js";
 
 const VERSION = DPAI_CLI_VERSION;
 
@@ -26,6 +27,7 @@ const ALIASES: Record<string, string> = {
   "file edit": "edit_file",
   "file grep": "grep",
   "file list": "list_files",
+  "file patch": "edit_file",
   "file read": "read_file",
   "file write": "write_file",
   "guide get": "get_guide",
@@ -55,6 +57,7 @@ type ParsedArguments = {
   cursor?: string;
   deleteToken: boolean;
   deleteText?: string;
+  deleteFile?: string;
   depth?: string;
   description?: string;
   designName?: string;
@@ -85,12 +88,15 @@ type ParsedArguments = {
   path?: string;
   positional: string[];
   prepend: boolean;
+  patchFile?: string;
+  patchMode: boolean;
   pretty: boolean;
   props: string[];
   query?: string;
   raw: boolean;
   regex: boolean;
   replace?: string;
+  replaceFile?: string;
   review?: string;
   route?: string;
   sections: string[];
@@ -169,6 +175,9 @@ async function main() {
   if (args.positional.slice(0, 2).join(" ") === "token delete") {
     args.deleteToken = true;
   }
+  if (args.positional.slice(0, 2).join(" ") === "file patch") {
+    args.patchMode = true;
+  }
   const input = args.input
     ? await readJsonInput(args.input)
     : await createConvenienceInput(toolName, args, () => readCurrentRevision(execute));
@@ -196,6 +205,7 @@ function parseArguments(values: string[]): ParsedArguments {
     ignoreCase: false,
     include: [],
     overwrite: false,
+    patchMode: false,
     positional: [],
     prepend: false,
     pretty: false,
@@ -218,6 +228,7 @@ function parseArguments(values: string[]): ParsedArguments {
     "--context-lines": "contextLines",
     "--cursor": "cursor",
     "--delete": "deleteText",
+    "--delete-file": "deleteFile",
     "--depth": "depth",
     "--description": "description",
     "--design-name": "designName",
@@ -237,10 +248,12 @@ function parseArguments(values: string[]): ParsedArguments {
     "--name-pattern": "namePattern",
     "--new-name": "newName",
     "--output": "output",
+    "--patch-file": "patchFile",
     "--page": "page",
     "--path": "path",
     "--query": "query",
     "--replace": "replace",
+    "--replace-file": "replaceFile",
     "--review": "review",
     "--route": "route",
     "--snippet-chars": "snippetChars",
@@ -312,6 +325,42 @@ function appendListValue(
   target.push(...value.split(",").map((item) => item.trim()).filter(Boolean));
 }
 
+const WINDOWS_ABSOLUTE_PATH = /^[a-z]:[\\/]/i;
+
+function normalizePageRouteArgument(route: string) {
+  if (route.startsWith("/")) return route;
+
+  const windowsPath = route.replaceAll("\\", "/");
+  if (WINDOWS_ABSOLUTE_PATH.test(windowsPath)) {
+    const recoveredRoute = recoverMsysConvertedRoute(windowsPath, process.env);
+    if (recoveredRoute) return recoveredRoute;
+    throw new CliUsageError(
+      "WINDOWS_PATH_AS_ROUTE",
+      `Page route was received as a Windows path: ${route}`,
+      "If you use Git Bash, pass the route without its leading slash (for example --route activity) or set MSYS_NO_PATHCONV=1.",
+    );
+  }
+
+  return `/${route}`;
+}
+
+function recoverMsysConvertedRoute(route: string, environment: NodeJS.ProcessEnv) {
+  if (!environment.MSYSTEM) return undefined;
+  const mingwPrefix = environment.MINGW_PREFIX ?? environment.MSYSTEM_PREFIX;
+  if (!mingwPrefix) return undefined;
+
+  const normalizedPrefix = mingwPrefix.replaceAll("\\", "/").replace(/\/+$/, "");
+  if (!WINDOWS_ABSOLUTE_PATH.test(normalizedPrefix)) return undefined;
+  const finalSeparator = normalizedPrefix.lastIndexOf("/");
+  if (finalSeparator <= 2) return undefined;
+
+  const msysRoot = normalizedPrefix.slice(0, finalSeparator);
+  const routeWithoutTrailingSlash = route.replace(/\/+$/, "");
+  if (routeWithoutTrailingSlash.toLowerCase() === msysRoot.toLowerCase()) return "/";
+  if (!route.toLowerCase().startsWith(`${msysRoot.toLowerCase()}/`)) return undefined;
+  return route.slice(msysRoot.length);
+}
+
 function resolveInvocation(positional: string[]) {
   if (positional[0] === "call") {
     const toolName = positional[1];
@@ -354,7 +403,7 @@ async function createConvenienceInput(
         "Use either --content or --content-file, not both.",
       );
     }
-    if (args.contentFile !== undefined) return readFile(resolve(args.contentFile), "utf8");
+    if (args.contentFile !== undefined) return readUtf8File(args.contentFile);
     if (args.content !== undefined) return args.content;
     if (!process.stdin.isTTY) {
       const stdin = (await readStdin()).replace(/^\uFEFF/, "");
@@ -417,28 +466,75 @@ async function createConvenienceInput(
     };
   }
   if (toolName === "edit_file" && args.path) {
+    if (args.patchMode) {
+      if (
+        args.before !== undefined
+        || args.after !== undefined
+        || args.replace !== undefined
+        || args.replaceFile !== undefined
+        || args.deleteText !== undefined
+        || args.deleteFile !== undefined
+        || args.append
+        || args.prepend
+        || args.content !== undefined
+        || args.contentFile !== undefined
+      ) {
+        throw new CliUsageError(
+          "PATCH_SOURCE_CONFLICT",
+          "file patch accepts only --patch-file or raw patch content from stdin.",
+        );
+      }
+      const patch = args.patchFile !== undefined
+        ? await readUtf8File(args.patchFile)
+        : await readRequiredStdin(
+          "PATCH_REQUIRED",
+          "Pipe a unified diff through stdin, or use --patch-file <path>.",
+        );
+      try {
+        return {
+          edits: parseUnifiedPatch(patch),
+          expectedRevision: await revision(),
+          path: args.path,
+        };
+      } catch (error) {
+        throw new CliUsageError(
+          "INVALID_PATCH",
+          error instanceof Error ? error.message : "The unified diff is invalid.",
+          "Generate a standard unified diff with context lines, then retry file patch.",
+        );
+      }
+    }
     const modes = [
       args.before !== undefined,
       args.after !== undefined,
       args.replace !== undefined,
+      args.replaceFile !== undefined,
       args.deleteText !== undefined,
+      args.deleteFile !== undefined,
       args.append,
       args.prepend,
     ];
     if (modes.filter(Boolean).length !== 1) {
       throw new CliUsageError(
         "EDIT_MODE_REQUIRED",
-        "Choose exactly one of --before, --after, --replace, --delete, --append, or --prepend.",
+        "Choose exactly one of --before, --after, --replace, --replace-file, --delete, --delete-file, --append, or --prepend.",
       );
     }
-    const edit = args.deleteText !== undefined
-      ? { oldText: args.deleteText, operation: "delete" }
+    const edit = args.deleteText !== undefined || args.deleteFile !== undefined
+      ? {
+        oldText: args.deleteText ?? await readUtf8File(args.deleteFile!),
+        operation: "delete",
+      }
       : args.before !== undefined
         ? { anchor: args.before, content: await content(), operation: "insert_before" }
         : args.after !== undefined
           ? { anchor: args.after, content: await content(), operation: "insert_after" }
-          : args.replace !== undefined
-            ? { newText: await content(), oldText: args.replace, operation: "replace" }
+          : args.replace !== undefined || args.replaceFile !== undefined
+            ? {
+              newText: await content(),
+              oldText: args.replace ?? await readUtf8File(args.replaceFile!),
+              operation: "replace",
+            }
             : args.append
               ? { content: await content(), operation: "append" }
               : { content: await content(), operation: "prepend" };
@@ -461,7 +557,7 @@ async function createConvenienceInput(
       id: args.id,
       layout: args.layout,
       name: args.name,
-      route: args.route,
+      route: normalizePageRouteArgument(args.route),
       viewport,
     };
   }
@@ -610,6 +706,18 @@ async function readStdin() {
   return Buffer.concat(chunks).toString("utf8");
 }
 
+async function readRequiredStdin(code: string, message: string) {
+  if (!process.stdin.isTTY) {
+    const stdin = (await readStdin()).replace(/^\uFEFF/, "");
+    if (stdin.length > 0) return stdin;
+  }
+  throw new CliUsageError(code, message);
+}
+
+async function readUtf8File(path: string) {
+  return (await readFile(resolve(path), "utf8")).replace(/^\uFEFF/, "");
+}
+
 async function findWorkspaceRoot(explicit?: string) {
   if (explicit) return assertWorkspace(resolve(explicit));
   if (process.env.DPAI_WORKSPACE) return assertWorkspace(resolve(process.env.DPAI_WORKSPACE));
@@ -669,7 +777,9 @@ function serializeError(error: unknown) {
   ) {
     return {
       code: error.code,
-      details: error instanceof WorkspaceToolError ? error.details : {},
+      details: error instanceof WorkspaceToolError || error instanceof CliConfigurationError
+        ? error.details
+        : {},
       message: error.message,
       suggestion: error.suggestion,
     };
@@ -703,10 +813,12 @@ Usage:
   dpai <group> <command> [options]
 
 Comfortable authoring:
-  dpai page create --id activity --name "Activity" --route /activity --layout app-shell
+  dpai page create --id activity --name "Activity" --route activity --layout app-shell
   dpai file read --path src/pages/activity.page.html --full
   dpai file edit --path src/pages/activity.page.html --before "<!-- agent:page-sections -->" --content-file section.html
   dpai file edit --path src/pages/activity.page.html --before "<!-- agent:page-sections -->" < section.html
+  dpai file edit --path src/pages/activity.page.html --replace-file old.html --content-file new.html
+  dpai file patch --path src/pages/activity.page.html --patch-file activity.diff
   dpai preview verify --page activity
   dpai work finish --page activity
 
@@ -723,7 +835,7 @@ Aliases:
   design context|lint|tokens|create-tokens|set-tokens|set-section|update
   token list|create|set|delete
   guide get
-  file list|grep|read|write|edit
+  file list|grep|read|write|edit|patch
   page create|set-layout
   layout create
   component create
@@ -742,8 +854,11 @@ Options:
                            Without either flag, native file commands read raw stdin
   --before|--after <text>  Insert content around a unique anchor
   --replace|--delete <text> Replace with content, or delete matching text
+  --replace-file <path>    Read the exact text to replace from a UTF-8 file
+  --delete-file <path>     Read the exact text to delete from a UTF-8 file
+  --patch-file <path>      Apply a standard unified diff with file patch
   --append|--prepend       Add content at the end or start of a source file
-  --id --name --route      Native page-create fields (revision is automatic)
+  --id --name --route      Native page-create fields; a missing route slash is added automatically
   --layout <id>            Layout for page create or page set-layout
   --page <id[,id...]>      Page target for verify and finish
   --detail compact|full    Context detail level
@@ -781,6 +896,11 @@ Options:
   --raw                    Print a string result without JSON quoting
   --help                   Show help
   --version                Show version
+
+JSON escape hatch:
+  Native commands cover ordinary authoring. Use --input only for mixed atomic
+  edit batches, atomic multi-token batches, complete design-system structures,
+  or low-level integration debugging.
 `;
 
 await main().catch((error) => {

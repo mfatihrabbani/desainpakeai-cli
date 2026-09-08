@@ -117,6 +117,7 @@ export async function readJsonResponse(response: Response) {
         : typeof details.suggestion === "string"
           ? details.suggestion
           : undefined,
+      { httpStatus: response.status, ...details },
     );
   }
   return payload;

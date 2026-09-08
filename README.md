@@ -16,9 +16,10 @@ If installation reports `EEXIST` for the `dpai` binary from an older beta,
 run `npm uninstall --global @desainpakeai/cli`, then retry the install. Do not
 use `--force`.
 
-The global binary avoids repeated `npx` startup cost. At the beginning of a new
-agent task, run `npm install --global desainpakeai-cli@latest` once to check for
-and install a newer release. Then use `dpai` for every operation in that task.
+The global binary avoids repeated `npx` startup cost. Start with `dpai --version`.
+Install the package only when the command is unavailable, or update it when the
+user explicitly requests synchronization. Then use `dpai` for every operation
+in the continuous task.
 
 Log in once, then omit `--workspace` to target the active PostgreSQL project:
 
@@ -26,12 +27,12 @@ Log in once, then omit `--workspace` to target the active PostgreSQL project:
 dpai auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
 dpai project current --pretty
 dpai context --pretty
-dpai guide get --topic prototype-authoring --raw
 ```
 
-Remote guides are served by the DesainPakeAI application, so guide updates do
-not require a new CLI or skill release. Explicit local workspace mode uses the
-guide bundled with the selected CLI version as an offline fallback.
+The bundled skill owns the core authoring workflow. Optional domain guides are
+served by the DesainPakeAI application and can be fetched only when relevant,
+for example `dpai guide get --topic design-quality --raw`. Explicit local
+workspace mode uses the matching guide bundled with the selected CLI version.
 
 Pass `--workspace` only for explicit filesystem-local work:
 
@@ -50,7 +51,7 @@ heredoc:
 dpai page create \
   --id activity \
   --name "Activity" \
-  --route /activity \
+  --route activity \
   --layout app-shell
 
 dpai file edit \
@@ -65,8 +66,38 @@ dpai preview verify --page activity --pretty
 dpai work finish --page activity --pretty
 ```
 
+For native `page create`, the leading route slash is optional and the CLI adds
+it automatically. Prefer `--route activity` in shell commands: unlike
+`--route /activity`, it cannot be rewritten into a Windows path by Git
+Bash/MSYS. The CLI also repairs the standard MSYS-converted form when the MSYS
+installation root is available, and rejects other Windows paths with a targeted
+error instead of creating a malformed route.
+
 Use `--content-file section.html` instead of a heredoc when a file-based flow
 is more convenient. `--content` handles short inline changes.
+
+For exact multiline replacement, keep the old and new text in UTF-8 files:
+
+```bash
+dpai file edit \
+  --path src/pages/activity.page.html \
+  --replace-file old-section.html \
+  --content-file new-section.html
+```
+
+For several related replacements, apply one standard unified diff atomically:
+
+```bash
+dpai file patch \
+  --path src/pages/activity.page.html \
+  --patch-file activity.diff
+```
+
+`file patch` converts each hunk into a guarded partial replacement. It accepts
+one source file and at most 50 hunks; each hunk needs context so its anchor stays
+unique. Raw stdin also works: `dpai file patch --path <path> < changes.diff`.
+On Windows PowerShell 5.1, prefer UTF-8 files for non-ASCII content because the
+shell may replace characters before they reach a native program through stdin.
 
 Design and component work also has native commands:
 
@@ -126,11 +157,24 @@ dpai call get_project_context
 dpai call create_page --input @create-page.json
 ```
 
-Do not handwrite JSON in the shell. `--input @file.json` remains an escape hatch
-for complex or bulk operations that do not have native flags; `--input -` can
-read a generated JSON payload from stdin. Results are JSON by default. Use
-`--pretty` for formatted output or `--raw` for guide and other string results.
-`design context --cursor <value>` paginates long requested sections.
+Do not handwrite JSON in the shell. Native commands cover ordinary reads,
+single-file writes and edits, unified patches, page/layout/component creation,
+tokens, design sections and metadata, verification, progress, review download,
+and export.
+
+JSON input remains only as an advanced escape hatch:
+
+| Remaining case | Prefer without JSON | Use JSON only when |
+| --- | --- | --- |
+| Mixed atomic file edits | `file edit` or `file patch` | one transaction must mix insert, delete, prepend, and append operations |
+| Token batches | repeated `token create`, `token set`, or `token delete` | many token changes must succeed or fail as one atomic batch |
+| Full design-system structures | `design update` for metadata and `design set-section` for guidance | updating component recipes or the complete omissions list |
+| Low-level integration/debugging | the named native command | exercising the stable operation API directly |
+
+For those cases, generate a UTF-8 payload file and pass `--input @file.json`;
+`--input -` accepts generated JSON from stdin. Results remain JSON by default.
+Use `--pretty` for formatted output or `--raw` for guide and other string
+results. `design context --cursor <value>` paginates long requested sections.
 
 ## Scope
 

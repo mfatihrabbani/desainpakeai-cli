@@ -1,4 +1,4 @@
 interface:
   display_name: "DesainPakeAI Prototype"
   short_description: "Build prototypes through the latest dpai CLI"
-  default_prompt: "Use $desainpakeai-prototype to update a prototype through the latest dpai CLI and live guide."
+  default_prompt: "Use $desainpakeai-prototype to update a prototype through the dpai CLI and current project context."
