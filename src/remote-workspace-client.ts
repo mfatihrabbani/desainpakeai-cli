@@ -1,6 +1,7 @@
 import { readJsonResponse } from "./auth-client.js";
 import { resolveCredential, type CredentialOverrides } from "./credentials.js";
 import { CliConfigurationError } from "./errors.js";
+import { createCliRequestHeaders } from "./client-metadata.js";
 import { GUIDES } from "./guides.js";
 import {
   compactToolPayload,
@@ -52,10 +53,9 @@ async function requestRemoteTool(
     `${credential.apiUrl.replace(/\/$/, "")}/api/cli/workspace/${operation}`,
     {
       body: JSON.stringify({ input: input ?? {} }),
-      headers: {
-        Authorization: `Bearer ${credential.apiKey}`,
+      headers: createCliRequestHeaders(credential.apiKey, {
         "Content-Type": "application/json",
-      },
+      }),
       method: "POST",
     },
   );

@@ -103,6 +103,21 @@ active project in DesainPakeAI is reflected by the next `project current` call.
 Credentials are stored outside the repository in the user configuration
 directory. Use the same release URL with `auth logout` to remove them.
 
+Remote requests send the CLI version and a non-sensitive harness label for the
+DesainPakeAI admin activity monitor. Codex, Claude Code, Cursor Agent, Gemini
+CLI, OpenCode, Windsurf, and VS Code are detected from their process
+environment. Other harnesses can identify themselves without changing request
+payloads:
+
+```powershell
+$env:DPAI_AGENT_HARNESS = "my-harness"
+$env:DPAI_AGENT_VERSION = "1.0.0"
+dpai context --pretty
+```
+
+These values are labels only. The CLI never sends environment contents,
+credentials, prompts, file contents, or command payloads as telemetry.
+
 Every operation is also available through the stable tool-name interface:
 
 ```bash

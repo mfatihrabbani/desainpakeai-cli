@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { readJsonResponse } from "./auth-client.js";
 import { resolveCredential, type CredentialOverrides } from "./credentials.js";
+import { createCliRequestHeaders } from "./client-metadata.js";
 
 export type ReviewClientOptions = CredentialOverrides;
 
@@ -17,7 +18,7 @@ export async function getReview(
   const credential = await resolveCredential(options);
   const base = credential.apiUrl.replace(/\/$/, "");
   const reviewId = encodeURIComponent(input.reviewId);
-  const headers = { Authorization: `Bearer ${credential.apiKey}` };
+  const headers = createCliRequestHeaders(credential.apiKey);
   const metadataResponse = await fetch(`${base}/api/cli/reviews/${reviewId}`, { headers });
   const review = await readJsonResponse(metadataResponse);
 

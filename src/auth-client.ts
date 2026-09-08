@@ -8,6 +8,7 @@ import {
   type CredentialOverrides,
 } from "./credentials.js";
 import { CliConfigurationError } from "./errors.js";
+import { createCliRequestHeaders } from "./client-metadata.js";
 
 const sessionSchema = z.object({
   authenticated: z.literal(true),
@@ -83,7 +84,7 @@ export async function logout() {
 
 export async function fetchCliSession(apiUrl: string, apiKey: string): Promise<CliSession> {
   const response = await fetch(`${apiUrl.replace(/\/$/, "")}/api/cli/session`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
+    headers: createCliRequestHeaders(apiKey),
   });
   const payload = await readJsonResponse(response);
   const parsed = sessionSchema.safeParse(payload);

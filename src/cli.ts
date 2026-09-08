@@ -4,12 +4,13 @@ import { readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { ZodError } from "zod";
 import { authStatus, currentProject, login, logout } from "./auth-client.js";
+import { DPAI_CLI_VERSION } from "./client-metadata.js";
 import { WorkspaceToolError } from "./core/server/local-workspace.js";
 import { CliConfigurationError } from "./errors.js";
 import { executeRemoteTool } from "./remote-workspace-client.js";
 import { executeTool, TOOL_NAMES, UnknownToolError } from "./tool-registry.js";
 
-const VERSION = "0.2.0";
+const VERSION = DPAI_CLI_VERSION;
 
 const ALIASES: Record<string, string> = {
   "component create": "create_component",
