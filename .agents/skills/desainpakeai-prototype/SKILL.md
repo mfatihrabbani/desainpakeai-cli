@@ -65,6 +65,19 @@ with `--content-file`. For several related replacements, use
 `file patch --patch-file <diff>` or pipe a standard unified diff through stdin.
 Prefer UTF-8 files for non-ASCII content on Windows PowerShell 5.1.
 
+## Author HTML and CSS together
+
+Write the markup and its styling in the same edit. Prefer `style="..."`
+attributes for element-specific prototype styling; do not create a separate
+CSS-first pass before writing the HTML. Keep design-token references such as
+`var(--color-accent)` inside those inline declarations when available.
+
+Use a local `<style>` block only for behavior that inline declarations cannot
+express: pseudo-classes or pseudo-elements, media queries, keyframes, or rules
+shared by several elements. When a `<style>` block is necessary, submit it with
+the related markup in the same CLI mutation instead of editing styles and HTML
+in separate rounds.
+
 Repeat list flags or pass comma-separated values. Use `--input @payload.json`
 only for an atomic batch that mixes edit modes, an atomic multi-token batch,
 component recipes, the complete omissions list, or low-level integration
