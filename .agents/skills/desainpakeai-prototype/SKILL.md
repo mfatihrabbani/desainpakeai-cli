@@ -122,7 +122,19 @@ creating temporary old/new files.
 Use `--content-file`, `--replace-file`, or `--patch-file` only when the shell
 cannot preserve the payload exactly, when the artifact is useful for debugging,
 or when Windows PowerShell 5.1 may corrupt non-ASCII stdin. Keep those files
-UTF-8 and remove task-only temporary files after a successful verified edit.
+UTF-8.
+
+When fallback files are necessary, resolve the Git repository root and place
+them only in `<git-root>/.desainpakeai/tmp/<task-slug>/` with descriptive names.
+Before writing the first file, ensure the root `.gitignore` contains the exact
+root-relative entry `/.desainpakeai/tmp/`; append only that line when missing
+and preserve the rest of the file. If the current directory is not in a Git
+repository, use `<cwd>/.desainpakeai/tmp/<task-slug>/` and do not create a
+`.gitignore` solely for it. Never put temporary inputs beside prototype source
+files. Delete a fallback file as soon as the command consuming it succeeds. If
+the command fails, keep it only while recovering, then delete it. Before
+`work finish` or handoff, verify that the task-specific temporary directory no
+longer exists; never leave task-only files behind after the work is complete.
 
 ## Show page progress section by section
 
