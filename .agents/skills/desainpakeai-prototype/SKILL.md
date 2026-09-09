@@ -104,9 +104,12 @@ Do not handwrite inline JSON. Use native flags for normal work; the CLI builds
 and validates the operation payload and reads the latest revision automatically.
 For `page create`, pass routes without a leading slash, such as
 `--route activity`; the CLI adds the slash. This form avoids Git Bash/MSYS path
-conversion on Windows.
+conversion on Windows. When the page needs a specific Canvas viewport, pass
+`--width <320-3840>` and `--height <320-2160>` together. Omit both flags to use
+the default `1440x960` viewport; never pass only one dimension.
 
 ```text
+<prefix> page create --id activity --name "Activity" --route activity --layout app-shell --width 1440 --height 900
 <prefix> design context --detail compact --section Overview,Components --pretty
 <prefix> token list --type color,spacing --format css
 <prefix> token create --name --color-accent --type color --value "#635bff"

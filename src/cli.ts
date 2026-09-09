@@ -813,7 +813,7 @@ Usage:
   dpai <group> <command> [options]
 
 Comfortable authoring:
-  dpai page create --id activity --name "Activity" --route activity --layout app-shell
+  dpai page create --id activity --name "Activity" --route activity --layout app-shell --width 1440 --height 900
   dpai file read --path src/pages/activity.page.html --full
   dpai file edit --path src/pages/activity.page.html --before "<!-- agent:page-sections -->" --content-file section.html
   dpai file edit --path src/pages/activity.page.html --before "<!-- agent:page-sections -->" < section.html
@@ -860,6 +860,8 @@ Options:
   --append|--prepend       Add content at the end or start of a source file
   --id --name --route      Native page-create fields; a missing route slash is added automatically
   --layout <id>            Layout for page create or page set-layout
+  --width <320-3840>       Page viewport width; use together with --height
+  --height <320-2160>      Page viewport height; use together with --width
   --page <id[,id...]>      Page target for verify and finish
   --detail compact|full    Context detail level
   --include <item[,item]>  Context fields; repeatable

@@ -55,7 +55,9 @@ dpai page create \
   --id activity \
   --name "Activity" \
   --route activity \
-  --layout app-shell
+  --layout app-shell \
+  --width 1440 \
+  --height 900
 
 dpai file edit \
   --path src/pages/activity.page.html \
@@ -75,6 +77,10 @@ it automatically. Prefer `--route activity` in shell commands: unlike
 Bash/MSYS. The CLI also repairs the standard MSYS-converted form when the MSYS
 installation root is available, and rejects other Windows paths with a targeted
 error instead of creating a malformed route.
+
+Set the page's Canvas viewport during creation with `--width` and `--height`.
+Both dimensions must be passed together. Width accepts `320` through `3840`,
+height accepts `320` through `2160`, and omitting both uses `1440x960`.
 
 Use `--content-file section.html` instead of a heredoc when a file-based flow
 is more convenient. `--content` handles short inline changes.

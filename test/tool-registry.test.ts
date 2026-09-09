@@ -385,6 +385,13 @@ test("CLI native flags author a page without JSON or explicit revisions", async 
   ], { encoding: "utf8" })) as { page: { id: string }; revision: string };
   assert.equal(created.page.id, "activity");
   assert.match(created.revision, /^sha256-/);
+  const manifest = JSON.parse(await readFile(resolve(root, "prototype.json"), "utf8")) as {
+    pages: Array<{ id: string; viewport: { height: number; width: number } }>;
+  };
+  assert.deepEqual(
+    manifest.pages.find((page) => page.id === "activity")?.viewport,
+    { height: 800, width: 1200 },
+  );
 
   const fragment = '<section data-node-id="activity.feed"><h2>Recent activity</h2></section>\n    ';
   const edited = JSON.parse(execFileSync(process.execPath, [
