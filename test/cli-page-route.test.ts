@@ -43,6 +43,35 @@ test("page create normalizes shell-safe and MSYS-converted routes", async (t) =>
   assert.equal(manifest.pages.find((page) => page.id === "cal-landing")?.route, "/cal-landing/");
 });
 
+test("page create sends the default viewport unless --width and --height are passed", async (t) => {
+  const workspace = await mkdtemp(resolve(tmpdir(), "dpai-cli-page-viewport-"));
+  t.after(() => rm(workspace, { force: true, recursive: true }));
+  await createWorkspaceFixture(workspace);
+
+  await runCli([
+    "page", "create",
+    "--workspace", workspace,
+    "--id", "desktop",
+    "--name", "Desktop",
+    "--route", "desktop",
+  ]);
+  await runCli([
+    "page", "create",
+    "--workspace", workspace,
+    "--id", "mobile",
+    "--name", "Mobile",
+    "--route", "mobile",
+    "--width", "390",
+    "--height", "844",
+  ]);
+
+  const manifest = JSON.parse(await readFile(resolve(workspace, "prototype.json"), "utf8")) as {
+    pages: Array<{ id: string; viewport: { height: number; width: number } }>;
+  };
+  assert.deepEqual(manifest.pages.find((page) => page.id === "desktop")?.viewport, { height: 960, width: 1440 });
+  assert.deepEqual(manifest.pages.find((page) => page.id === "mobile")?.viewport, { height: 844, width: 390 });
+});
+
 test("page create rejects a Windows path that cannot be safely recovered", async (t) => {
   const workspace = await mkdtemp(resolve(tmpdir(), "dpai-cli-page-route-error-"));
   t.after(() => rm(workspace, { force: true, recursive: true }));

@@ -1,8 +1,9 @@
 # DesainPakeAI CLI
 
-Standalone, agent-friendly CLI for the dependency-free DesainPakeAI prototype
-workspace. It exposes the complete workspace operation surface as deterministic
-CLI commands and packages the authoring workflow as a Codex skill.
+Standalone, agent-friendly CLI for DesainPakeAI prototype workspaces, covering
+HTML (`single-html@1`, `html-wc@1`) and React JSX (`react-jsx@1`) projects. It
+exposes the complete workspace operation surface as deterministic CLI commands
+and packages the authoring workflow as a Codex skill.
 
 ## Install the CLI and skill
 
@@ -126,6 +127,29 @@ List flags may be repeated or comma-separated. File reads and searches support
 native line, depth, regex, case, and result-limit flags; run `--help` for the
 complete reference.
 
+## React JSX projects
+
+`dpai context` reports `prototype.runtime` and an `authoring` object naming the
+create operations for that runtime. In `react-jsx@1` projects, pages, layouts,
+and components are created only as complete React 19 JSX modules; the skeleton
+`page create`, `layout create`, and `component create` commands return
+`UNSUPPORTED_RUNTIME`. `dpai guide get --topic workspace-authoring` returns the
+JSX contract for those projects.
+
+```bash
+dpai layout create-bundle --id app-shell --source-file app-shell.layout.jsx
+dpai component create-bundle --id metric-card --source-file metric-card.component.jsx
+dpai page create-bundle --id activity --name "Activity" --route activity \
+  --layout app-shell --source-file activity.page.jsx
+```
+
+`--source-file` reads UTF-8 and strips a BOM; `--source-file -` or piped stdin
+also works. `page create-bundle` accepts the same `--route`, `--layout`,
+`--width`, and `--height` flags as `page create` and defaults to `1440x960`.
+`component create-bundle` accepts `--tag`, `--prop`, and `--default`. Bundle
+commands need the remote project; local `--workspace` mode only supports
+`single-html@1` and reports `UNSUPPORTED_RUNTIME`.
+
 ## Login and active project
 
 Use the `dpai_...` access key created from **Siapkan CLI** in DesainPakeAI:
@@ -164,6 +188,7 @@ Every operation is also available through the stable tool-name interface:
 dpai tools
 dpai call get_project_context
 dpai call create_page --input @create-page.json
+dpai call create_page_bundle --input @create-page-bundle.json
 ```
 
 Do not handwrite JSON in the shell. Native commands cover ordinary reads,

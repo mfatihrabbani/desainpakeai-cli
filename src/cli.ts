@@ -15,6 +15,7 @@ const VERSION = DPAI_CLI_VERSION;
 
 const ALIASES: Record<string, string> = {
   "component create": "create_component",
+  "component create-bundle": "create_component_bundle",
   context: "get_project_context",
   "design context": "get_design_context",
   "design create-tokens": "create_tokens",
@@ -32,7 +33,9 @@ const ALIASES: Record<string, string> = {
   "file write": "write_file",
   "guide get": "get_guide",
   "layout create": "create_layout",
+  "layout create-bundle": "create_layout_bundle",
   "page create": "create_page",
+  "page create-bundle": "create_page_bundle",
   "page set-layout": "set_page_layout",
   "preview verify": "verify_preview",
   "review get": "get_review",
@@ -101,6 +104,7 @@ type ParsedArguments = {
   route?: string;
   sections: string[];
   snippetChars?: string;
+  sourceFile?: string;
   startLine?: string;
   tag?: string;
   topic?: string;
@@ -257,6 +261,7 @@ function parseArguments(values: string[]): ParsedArguments {
     "--review": "review",
     "--route": "route",
     "--snippet-chars": "snippetChars",
+    "--source-file": "sourceFile",
     "--start-line": "startLine",
     "--tag": "tag",
     "--topic": "topic",
@@ -551,18 +556,41 @@ async function createConvenienceInput(
         "page create requires --id, --name, and --route.",
       );
     }
-    const viewport = parseViewport(args.width, args.height);
     return {
       expectedRevision: await revision(),
       id: args.id,
       layout: args.layout,
       name: args.name,
       route: normalizePageRouteArgument(args.route),
-      viewport,
+      viewport: parseViewport(args.width, args.height) ?? DEFAULT_PAGE_VIEWPORT,
+    };
+  }
+  if (toolName === "create_page_bundle" && (args.id || args.name || args.route)) {
+    if (!args.id || !args.name || !args.route) {
+      throw new CliUsageError(
+        "PAGE_FIELDS_REQUIRED",
+        "page create-bundle requires --id, --name, and --route.",
+      );
+    }
+    return {
+      expectedRevision: await revision(),
+      id: args.id,
+      layout: args.layout,
+      name: args.name,
+      route: normalizePageRouteArgument(args.route),
+      source: await readModuleSource(args.sourceFile),
+      viewport: parseViewport(args.width, args.height) ?? DEFAULT_PAGE_VIEWPORT,
     };
   }
   if (toolName === "create_layout" && args.id) {
     return { expectedRevision: await revision(), id: args.id };
+  }
+  if (toolName === "create_layout_bundle" && args.id) {
+    return {
+      expectedRevision: await revision(),
+      id: args.id,
+      source: await readModuleSource(args.sourceFile),
+    };
   }
   if (toolName === "create_component" && args.id) {
     return {
@@ -570,6 +598,16 @@ async function createConvenienceInput(
       expectedRevision: await revision(),
       id: args.id,
       props: parseAssignments(args.props, "--prop"),
+      tag: args.tag,
+    };
+  }
+  if (toolName === "create_component_bundle" && args.id) {
+    return {
+      defaults: parseAssignments(args.defaults, "--default"),
+      expectedRevision: await revision(),
+      id: args.id,
+      props: parseAssignments(args.props, "--prop"),
+      source: await readModuleSource(args.sourceFile),
       tag: args.tag,
     };
   }
@@ -687,6 +725,9 @@ async function readCurrentRevision(
   return context.revision;
 }
 
+// Matches the workspace default for pages created without a viewport.
+const DEFAULT_PAGE_VIEWPORT = Object.freeze({ height: 960, width: 1440 });
+
 function parseViewport(width?: string, height?: string) {
   if (width === undefined && height === undefined) return undefined;
   if (width === undefined || height === undefined) {
@@ -712,6 +753,17 @@ async function readRequiredStdin(code: string, message: string) {
     if (stdin.length > 0) return stdin;
   }
   throw new CliUsageError(code, message);
+}
+
+async function readModuleSource(sourceFile?: string) {
+  if (sourceFile === "-") {
+    return readRequiredStdin("SOURCE_REQUIRED", "--source-file - expects module source on stdin.");
+  }
+  if (sourceFile !== undefined) return readUtf8File(sourceFile);
+  return readRequiredStdin(
+    "SOURCE_REQUIRED",
+    "Bundle commands need a complete module: use --source-file <path>, or pipe it through stdin.",
+  );
 }
 
 async function readUtf8File(path: string) {
@@ -814,6 +866,7 @@ Usage:
 
 Comfortable authoring:
   dpai page create --id activity --name "Activity" --route activity --layout app-shell --width 1440 --height 900
+  dpai page create-bundle --id activity --name "Activity" --route activity --source-file activity.page.jsx
   dpai file read --path src/pages/activity.page.html --full
   dpai file edit --path src/pages/activity.page.html --before "<!-- agent:page-sections -->" --content-file section.html
   dpai file edit --path src/pages/activity.page.html --before "<!-- agent:page-sections -->" < section.html
@@ -836,9 +889,9 @@ Aliases:
   token list|create|set|delete
   guide get
   file list|grep|read|write|edit|patch
-  page create|set-layout
-  layout create
-  component create
+  page create|create-bundle|set-layout
+  layout create|create-bundle
+  component create|create-bundle
   preview verify
   work status|finish
   review get
@@ -859,9 +912,11 @@ Options:
   --patch-file <path>      Apply a standard unified diff with file patch
   --append|--prepend       Add content at the end or start of a source file
   --id --name --route      Native page-create fields; a missing route slash is added automatically
-  --layout <id>            Layout for page create or page set-layout
+  --layout <id>            Layout for page create, create-bundle, or set-layout
+  --source-file <path|->   Complete module source for create-bundle commands (UTF-8; - or piped stdin)
   --width <320-3840>       Page viewport width; use together with --height
   --height <320-2160>      Page viewport height; use together with --width
+                           page create and create-bundle default to 1440x960
   --page <id[,id...]>      Page target for verify and finish
   --detail compact|full    Context detail level
   --include <item[,item]>  Context fields; repeatable
@@ -883,7 +938,7 @@ Options:
   --end-line <n>           Last line for file read
   --around-line <n>        Center a partial file read around a line
   --context-lines <n>      Lines around --around-line
-  --tag <x-name>           Custom element tag for component create
+  --tag <x-name>           Custom element tag for component create or create-bundle
   --prop <name=value>      Component prop; repeatable
   --default <name=value>   Component default; repeatable
   --detach-layout          Remove the shared layout from a page
