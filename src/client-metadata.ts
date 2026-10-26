@@ -1,4 +1,4 @@
-export const DPAI_CLI_VERSION = "0.2.2";
+export const DPAI_CLI_VERSION = "0.2.4";
 
 export function createCliRequestHeaders(
   apiKey: string,
