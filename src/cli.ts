@@ -4,6 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { ZodError } from "zod";
 import { authStatus, currentProject, login, logout } from "./auth-client.js";
+import { browserLogin, canvasUrlFor, openInBrowser } from "./browser-login.js";
 import { DPAI_CLI_VERSION } from "./client-metadata.js";
 import { WorkspaceToolError } from "./core/server/local-workspace.js";
 import { CliConfigurationError } from "./errors.js";
@@ -82,6 +83,7 @@ type ParsedArguments = {
   input?: string;
   layout?: string;
   limit?: string;
+  noBrowser: boolean;
   name?: string;
   namePattern?: string;
   newName?: string;
@@ -112,6 +114,7 @@ type ParsedArguments = {
   typographyRoles: string[];
   value?: string;
   version: boolean;
+  wait?: string;
   width?: string;
   workspace?: string;
 };
@@ -136,7 +139,9 @@ async function main() {
       throw new CliUsageError("AUTH_COMMAND_REQUIRED", "Use auth login, status, or logout.");
     }
     const result = command === "login"
-      ? await login({ apiKey: args.apiKey, apiUrl: args.apiUrl })
+      ? args.apiKey ?? process.env.DPAI_API_KEY
+        ? await login({ apiKey: args.apiKey, apiUrl: args.apiUrl })
+        : await browserLogin(browserLoginOptions(args))
       : command === "status"
         ? await authStatus({ apiKey: args.apiKey, apiUrl: args.apiUrl })
         : command === "logout"
@@ -144,6 +149,13 @@ async function main() {
           : null;
     if (!result) throw new CliUsageError("UNKNOWN_AUTH_COMMAND", `Unknown auth command: ${command}`);
     writeOutput(result, args);
+    return;
+  }
+  if (args.positional[0] === "init" || args.positional[0] === "open") {
+    if (args.positional.length !== 1) {
+      throw new CliUsageError("UNEXPECTED_ARGUMENT", `${args.positional[0]} does not accept positional arguments.`);
+    }
+    writeOutput(await openCanvas(args, args.positional[0] === "init"), args);
     return;
   }
   if (args.positional[0] === "project" && args.positional[1] === "current") {
@@ -208,6 +220,7 @@ function parseArguments(values: string[]): ParsedArguments {
     help: false,
     ignoreCase: false,
     include: [],
+    noBrowser: false,
     overwrite: false,
     patchMode: false,
     positional: [],
@@ -266,6 +279,7 @@ function parseArguments(values: string[]): ParsedArguments {
     "--tag": "tag",
     "--topic": "topic",
     "--value": "value",
+    "--wait": "wait",
     "--width": "width",
     "--workspace": "workspace",
   };
@@ -286,6 +300,7 @@ function parseArguments(values: string[]): ParsedArguments {
     else if (value === "--detach-layout") result.detachLayout = true;
     else if (value === "--full") result.full = true;
     else if (value === "--ignore-case") result.ignoreCase = true;
+    else if (value === "--no-browser") result.noBrowser = true;
     else if (value === "--overwrite") result.overwrite = true;
     else if (value === "--prepend") result.prepend = true;
     else if (value === "--pretty") result.pretty = true;
@@ -804,6 +819,33 @@ async function isFile(path: string) {
   return (await stat(path).catch(() => undefined))?.isFile() ?? false;
 }
 
+function browserLoginOptions(args: ParsedArguments) {
+  const waitSeconds = args.wait === undefined ? undefined : Number(args.wait);
+  if (waitSeconds !== undefined && (!Number.isInteger(waitSeconds) || waitSeconds < 1 || waitSeconds > 600)) {
+    throw new CliUsageError("INVALID_WAIT", "--wait must be a whole number of seconds from 1 to 600.");
+  }
+  return { apiUrl: args.apiUrl, noBrowser: args.noBrowser, waitSeconds };
+}
+
+/**
+ * init signs in through the browser when needed (approval already lands on the
+ * canvas); otherwise both init and open show the active project's canvas.
+ */
+async function openCanvas(args: ParsedArguments, signInWhenNeeded: boolean) {
+  const status = await authStatus({ apiKey: args.apiKey, apiUrl: args.apiUrl });
+  if (!("project" in status)) {
+    if (!signInWhenNeeded) {
+      throw new CliConfigurationError("AUTH_REQUIRED", "DesainPakeAI CLI authentication is required.", "Run 'dpai init' or 'dpai auth login'.");
+    }
+    return browserLogin(browserLoginOptions(args));
+  }
+  const canvasUrl = canvasUrlFor(status.apiUrl, status.project.id);
+  const opened = args.noBrowser ? false : await openInBrowser(canvasUrl);
+  if (!opened) process.stderr.write(`Buka canvas di ${canvasUrl}
+`);
+  return { ...status, canvasUrl, opened };
+}
+
 function writeOutput(value: unknown, args: Pick<ParsedArguments, "pretty" | "raw">) {
   if (args.raw && typeof value === "string") {
     process.stdout.write(value.endsWith("\n") ? value : `${value}\n`);
@@ -858,6 +900,9 @@ const HELP = `DesainPakeAI CLI ${VERSION}
 
 Usage:
   dpai tools [--pretty]
+  dpai init [--no-browser] [--wait <seconds>]
+  dpai open [--no-browser]
+  dpai auth login [--api-url <url>] [--no-browser] [--wait <seconds>]
   dpai auth login --api-url <url> --api-key <dpai_key>
   dpai auth status|logout
   dpai project current
@@ -948,7 +993,9 @@ Options:
   --expected-revision <id> Optional explicit revision for native flags
   --export-output <path>   Override export output path
   --api-url <url>          DesainPakeAI application URL
-  --api-key <dpai_key>     DesainPakeAI CLI access key
+  --api-key <dpai_key>     DesainPakeAI CLI access key; omit it to sign in through the browser
+  --no-browser             Print the sign-in or canvas link instead of opening a browser
+  --wait <seconds>         How long auth login and init wait for browser approval (default 110)
   --pretty                 Pretty-print JSON
   --raw                    Print a string result without JSON quoting
   --help                   Show help

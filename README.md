@@ -22,12 +22,25 @@ Install the package only when the command is unavailable, or update it when the
 user explicitly requests synchronization. Then use `dpai` for every operation
 in the continuous task.
 
-Log in once, then omit `--workspace` to target the active PostgreSQL project:
+Sign in once through the browser, then omit `--workspace` to target the active
+PostgreSQL project:
+
+```powershell
+dpai init
+dpai project current --pretty
+dpai context --pretty
+```
+
+`dpai init` opens DesainPakeAI at a short code, the user picks a project and
+approves, and the browser lands on that project's Canvas while the CLI receives
+a fresh access key. No key passes through the agent chat. It waits up to 110
+seconds (`--wait <seconds>`); when it exits with `LOGIN_PENDING`, rerun it to
+keep waiting on the same code. Use `--no-browser` on a remote machine to print
+the link instead, `--api-url` for another server, and `dpai open` to show the
+Canvas again. CI and scripts can still pass a key:
 
 ```powershell
 dpai auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED
-dpai project current --pretty
-dpai context --pretty
 ```
 
 The bundled skill routes authoring through the CLI guide source of truth. It

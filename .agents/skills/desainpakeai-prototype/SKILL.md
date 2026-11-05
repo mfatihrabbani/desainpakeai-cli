@@ -22,9 +22,13 @@ and connection stay unchanged.
    `npm install --global desainpakeai-cli@latest`, then check the version again.
    Do not reinstall or update during every ordinary task.
 2. Use that binary for the rest of the continuous task.
-3. Run `<prefix> auth status --pretty` once. If authentication is missing, ask
-   the user to run `<prefix> auth login --api-url <url> --api-key <dpai_key>`,
-   then run `<prefix> auth status --pretty` once more to verify the login.
+3. Run `<prefix> auth status --pretty` once. If authentication is missing, run
+   `<prefix> init`. It opens DesainPakeAI in the user's browser; tell the user
+   to check that the code matches the terminal, pick a project, and approve.
+   Approval lands the browser on that project's Canvas. If `init` exits with
+   `LOGIN_PENDING`, relay its link and code, then run `<prefix> init` again to
+   keep waiting on the same code. Never ask the user to paste an access key.
+   Run `<prefix> open` whenever the user wants to see the Canvas again.
 4. Run `<prefix> project current --pretty` and confirm it is the target project.
 5. Run `<prefix> context --pretty` and retain its latest revision,
    `prototype.runtime`, and `authoring` (see "Follow the project runtime").
