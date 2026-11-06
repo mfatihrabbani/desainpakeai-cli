@@ -213,7 +213,11 @@ async function main() {
       outputPath: args.exportOutput ? resolve(args.exportOutput) : undefined,
       workspaceRoot,
     })
-    : executeRemoteTool(name, value, { apiKey: args.apiKey, apiUrl: args.apiUrl });
+    : executeRemoteTool(name, value, {
+      apiKey: args.apiKey,
+      apiUrl: args.apiUrl,
+      outputPath: args.exportOutput ? resolve(args.exportOutput) : undefined,
+    });
   if (args.positional.slice(0, 2).join(" ") === "token delete") {
     args.deleteToken = true;
   }

@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { readJsonResponse } from "./auth-client.js";
 import { resolveCredential, type CredentialOverrides } from "./credentials.js";
 import { CliConfigurationError } from "./errors.js";
@@ -11,11 +13,19 @@ import {
   type ProjectContextOptions,
 } from "./output-shaping.js";
 
+export type RemoteToolOptions = CredentialOverrides & {
+  /** Where `export_prototype` writes the downloaded HTML; defaults to ./.output/prototype.html. */
+  outputPath?: string;
+};
+
 export async function executeRemoteTool(
   name: string,
   input: unknown,
-  options: CredentialOverrides = {},
+  options: RemoteToolOptions = {},
 ) {
+  if (name === "export_prototype") {
+    return downloadRemoteExport(input as { expectedRevision: string }, options);
+  }
   if (name === "get_guide") {
     try {
       return await requestRemoteTool(name, input, options);
@@ -40,6 +50,34 @@ export async function executeRemoteTool(
     );
   }
   return compactToolPayload(name, await requestRemoteTool(name, input, options));
+}
+
+/**
+ * The server compiles the project and returns the HTML itself; the file is
+ * written here, on the user's machine, never on the server. The export opens
+ * on the first page unless the project has none.
+ */
+async function downloadRemoteExport(input: { expectedRevision: string }, options: RemoteToolOptions) {
+  const credential = await resolveCredential(options);
+  const apiUrl = credential.apiUrl.replace(/\/$/, "");
+  const context = await executeRemoteTool("get_project_context", {}, options) as { pages?: Array<{ route?: unknown }> };
+  const firstRoute = context.pages?.find((page) => typeof page.route === "string")?.route as string | undefined;
+  const query = new URLSearchParams({ revision: input.expectedRevision, ...(firstRoute ? { route: firstRoute } : {}) });
+  const response = await fetch(`${apiUrl}/api/cli/export?${query}`, {
+    headers: createCliRequestHeaders(credential.apiKey, {}, { apiUrl: credential.apiUrl }),
+  });
+  if (!response.ok) await readJsonResponse(response);
+  const html = await response.text();
+  const outputPath = resolve(options.outputPath ?? ".output/prototype.html");
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, html, "utf8");
+  return {
+    bytes: Buffer.byteLength(html, "utf8"),
+    initialRoute: firstRoute ?? "/",
+    outputPath,
+    pageCount: context.pages?.length ?? 0,
+    revision: response.headers.get("x-dpai-revision") ?? input.expectedRevision,
+  };
 }
 
 async function requestRemoteTool(
