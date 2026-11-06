@@ -217,6 +217,7 @@ async function main() {
       apiKey: args.apiKey,
       apiUrl: args.apiUrl,
       outputPath: args.exportOutput ? resolve(args.exportOutput) : undefined,
+      overwrite: args.overwrite || undefined,
     });
   if (args.positional.slice(0, 2).join(" ") === "token delete") {
     args.deleteToken = true;
@@ -1052,7 +1053,10 @@ Options:
   --output <path>          Downloaded visual review image path
   --topic <topic>          Guide topic for guide get
   --expected-revision <id> Optional explicit revision for native flags
-  --export-output <path>   Override export output path
+  --export-output <path>   Export target: an .html file for HTML projects, a folder
+                           for React (JSX) projects. Default: .output/ beside the
+                           folder's .dpai/project.json
+  --overwrite              Let export write into a non-empty folder
   --api-url <url>          DesainPakeAI application URL
   --api-key <dpai_key>     DesainPakeAI CLI access key; omit it to sign in through the browser
   --no-browser             Print the sign-in or canvas link instead of opening a browser

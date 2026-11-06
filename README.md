@@ -53,6 +53,14 @@ dpai project use 7d5a3c3e-8f9b-4a51-9d26-2b6a3c1f0e11
 dpai project current   # projectLink shows which file decided
 ```
 
+`dpai export` writes the active design onto this machine in its own runtime:
+a React (`react-jsx@1`) project becomes a Vite + React app folder
+(`npm install`, `npm run dev`), any other project one HTML file. Without
+`--export-output` it lands in `.output/` beside the folder's
+`.dpai/project.json`, even when run from a subfolder. It never writes into the
+linked code folder itself or into a non-empty folder that is not an earlier
+export unless you pass `--overwrite`.
+
 An agent with its own browser (Claude desktop, Codex) can run
 `dpai open --link` instead. It prints `openUrl`, a one-time link that signs that
 browser in and opens the active project's Canvas. The link expires after two
