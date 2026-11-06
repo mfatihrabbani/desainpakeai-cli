@@ -28,8 +28,16 @@ and connection stay unchanged.
    Approval lands the browser on that project's Canvas. If `init` exits with
    `LOGIN_PENDING`, relay its link and code, then run `<prefix> init` again to
    keep waiting on the same code. Never ask the user to paste an access key.
-   Run `<prefix> open` whenever the user wants to see the Canvas again.
-4. Run `<prefix> project current --pretty` and confirm it is the target project.
+   Run `<prefix> open` whenever the user wants to see the Canvas again. If you
+   have your own browser, run `<prefix> open --link` instead and open the
+   printed `openUrl` there at once: a one-time, two-minute link that signs that
+   browser in. Never paste it anywhere else.
+4. Each code folder remembers its design in `.dpai/project.json`. When `init`
+   returns `needsProject`, ask the user which of the listed designs this folder
+   belongs to (names, not IDs), then run `<prefix> project use <id>`. Run
+   `<prefix> project use` again only when the user asks to switch designs.
+   Run `<prefix> project current --pretty` and confirm it is the target project;
+   `projectLink` shows the file that chose it.
 5. Run `<prefix> context --pretty` and retain its latest revision,
    `prototype.runtime`, and `authoring` (see "Follow the project runtime").
 6. Before the first workspace source mutation, run
