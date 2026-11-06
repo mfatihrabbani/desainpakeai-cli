@@ -45,6 +45,7 @@ export function shapeProjectContext(
   const sections = Array.isArray(design.sections) ? design.sections.map(asRecord) : [];
   const include = new Set(options.include ?? []);
   const result: Record<string, unknown> = {
+    ...(context.authoring !== undefined ? { authoring: context.authoring } : {}),
     ...(components.length ? { components } : {}),
     designSummary: {
       colorTokens: Object.keys(asRecord(design.colors)).length,

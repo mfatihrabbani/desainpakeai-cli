@@ -54,7 +54,7 @@ export async function resolveCredential(
     throw new CliConfigurationError(
       "AUTH_REQUIRED",
       "DesainPakeAI CLI authentication is required.",
-      "Run 'dpai auth login --api-url <url> --api-key <dpai_key>' or set DPAI_API_URL and DPAI_API_KEY.",
+      "Run 'dpai auth login' to sign in through the browser, or set DPAI_API_URL and DPAI_API_KEY.",
     );
   }
   return { apiKey, apiUrl: normalizeApiUrl(apiUrl), stored };

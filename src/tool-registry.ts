@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { DESIGN_SECTION_ORDER } from "./core/server/design-document.js";
 import { FLAT_DESIGN_TOKEN_TYPES } from "./core/server/design-tokens.js";
-import { LocalPrototypeWorkspace } from "./core/server/local-workspace.js";
+import { LocalPrototypeWorkspace, WorkspaceToolError } from "./core/server/local-workspace.js";
 import { GUIDES, GUIDE_TOPICS } from "./guides.js";
 import {
   compactToolPayload,
@@ -13,6 +13,12 @@ import { getReview, type ReviewClientOptions } from "./review-client.js";
 
 const empty = z.object({}).strict();
 const revision = z.string().min(1);
+const moduleId = z.string().regex(/^[a-z][a-z0-9-]*$/);
+const moduleSource = z.string().min(1);
+const pageViewport = z.object({
+  height: z.number().int().min(320).max(2160),
+  width: z.number().int().min(320).max(3840),
+}).strict();
 const sourceEdit = z.discriminatedUnion("operation", [
   z.object({ operation: z.literal("replace"), oldText: z.string().min(1), newText: z.string() }).strict(),
   z.object({ operation: z.literal("insert_before"), anchor: z.string().min(1), content: z.string() }).strict(),
@@ -119,18 +125,29 @@ const schemas = {
   }).strict(),
   create_page: z.object({
     expectedRevision: revision,
-    id: z.string().regex(/^[a-z][a-z0-9-]*$/),
+    id: moduleId,
     layout: z.string().min(1).optional(),
     name: z.string().min(1),
     route: z.string().startsWith("/"),
-    viewport: z.object({
-      height: z.number().int().min(320).max(2160),
-      width: z.number().int().min(320).max(3840),
-    }).strict().optional(),
+    viewport: pageViewport.optional(),
+  }).strict(),
+  create_page_bundle: z.object({
+    expectedRevision: revision,
+    id: moduleId,
+    layout: z.string().min(1).optional(),
+    name: z.string().min(1),
+    route: z.string().startsWith("/"),
+    source: moduleSource,
+    viewport: pageViewport,
   }).strict(),
   create_layout: z.object({
     expectedRevision: revision,
-    id: z.string().regex(/^[a-z][a-z0-9-]*$/),
+    id: moduleId,
+  }).strict(),
+  create_layout_bundle: z.object({
+    expectedRevision: revision,
+    id: moduleId,
+    source: moduleSource,
   }).strict(),
   set_page_layout: z.object({
     expectedRevision: revision,
@@ -140,8 +157,16 @@ const schemas = {
   create_component: z.object({
     defaults: z.record(z.string(), z.string()).optional(),
     expectedRevision: revision,
-    id: z.string().regex(/^[a-z][a-z0-9-]*$/),
+    id: moduleId,
     props: z.record(z.string(), z.string()).optional(),
+    tag: z.string().regex(/^x-[a-z][a-z0-9-]*$/).optional(),
+  }).strict(),
+  create_component_bundle: z.object({
+    defaults: z.record(z.string(), z.string()).optional(),
+    expectedRevision: revision,
+    id: moduleId,
+    props: z.record(z.string(), z.string()).optional(),
+    source: moduleSource,
     tag: z.string().regex(/^x-[a-z][a-z0-9-]*$/).optional(),
   }).strict(),
   verify_preview: z.object({ pageId: z.string().optional() }).strict(),
@@ -150,6 +175,15 @@ const schemas = {
   }).strict(),
   export_prototype: z.object({ expectedRevision: revision }).strict(),
 } as const;
+
+// The vendored local workspace only reads single-html@1 manifests, so local
+// projects always author with the skeleton operations.
+const LOCAL_AUTHORING = Object.freeze({
+  createComponent: "create_component",
+  createLayout: "create_layout",
+  createPage: "create_page",
+  moduleExtension: ".html",
+});
 
 export type ToolName = keyof typeof schemas;
 
@@ -186,7 +220,7 @@ export async function executeTool(
         workspace.getProjectContext(),
         workspace.getDesignContext(),
       ]);
-      return shapeProjectContext(context, design, input);
+      return shapeProjectContext({ ...context, authoring: LOCAL_AUTHORING }, design, input);
     }
     case "get_design_context": return shapeDesignContext(
       await workspace.getDesignContext(),
@@ -225,6 +259,17 @@ export async function executeTool(
     case "create_layout": return workspace.createLayout(input);
     case "set_page_layout": return workspace.setPageLayout(input);
     case "create_component": return workspace.createComponent(input);
+    case "create_page_bundle":
+    case "create_layout_bundle":
+    case "create_component_bundle":
+      throw new WorkspaceToolError(
+        "UNSUPPORTED_RUNTIME",
+        `'${name}' is not available for local workspaces.`,
+        {
+          details: { operation: name, runtime: "single-html@1" },
+          suggestion: "Local workspaces use single-html@1: create the skeleton with page/layout/component create, then edit it. Omit --workspace to use bundles on the active remote project.",
+        },
+      );
     case "verify_preview": return workspace.verifyPreview(input.pageId);
     case "export_prototype": return workspace.exportPrototype(input.expectedRevision);
       default: throw new UnknownToolError(name);

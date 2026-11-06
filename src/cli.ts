@@ -4,6 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { ZodError } from "zod";
 import { authStatus, currentProject, login, logout } from "./auth-client.js";
+import { browserLogin, canvasUrlFor, openInBrowser } from "./browser-login.js";
 import { DPAI_CLI_VERSION } from "./client-metadata.js";
 import { WorkspaceToolError } from "./core/server/local-workspace.js";
 import { CliConfigurationError } from "./errors.js";
@@ -15,6 +16,7 @@ const VERSION = DPAI_CLI_VERSION;
 
 const ALIASES: Record<string, string> = {
   "component create": "create_component",
+  "component create-bundle": "create_component_bundle",
   context: "get_project_context",
   "design context": "get_design_context",
   "design create-tokens": "create_tokens",
@@ -32,7 +34,9 @@ const ALIASES: Record<string, string> = {
   "file write": "write_file",
   "guide get": "get_guide",
   "layout create": "create_layout",
+  "layout create-bundle": "create_layout_bundle",
   "page create": "create_page",
+  "page create-bundle": "create_page_bundle",
   "page set-layout": "set_page_layout",
   "preview verify": "verify_preview",
   "review get": "get_review",
@@ -79,6 +83,7 @@ type ParsedArguments = {
   input?: string;
   layout?: string;
   limit?: string;
+  noBrowser: boolean;
   name?: string;
   namePattern?: string;
   newName?: string;
@@ -101,6 +106,7 @@ type ParsedArguments = {
   route?: string;
   sections: string[];
   snippetChars?: string;
+  sourceFile?: string;
   startLine?: string;
   tag?: string;
   topic?: string;
@@ -108,6 +114,7 @@ type ParsedArguments = {
   typographyRoles: string[];
   value?: string;
   version: boolean;
+  wait?: string;
   width?: string;
   workspace?: string;
 };
@@ -132,7 +139,9 @@ async function main() {
       throw new CliUsageError("AUTH_COMMAND_REQUIRED", "Use auth login, status, or logout.");
     }
     const result = command === "login"
-      ? await login({ apiKey: args.apiKey, apiUrl: args.apiUrl })
+      ? args.apiKey ?? process.env.DPAI_API_KEY
+        ? await login({ apiKey: args.apiKey, apiUrl: args.apiUrl })
+        : await browserLogin(browserLoginOptions(args))
       : command === "status"
         ? await authStatus({ apiKey: args.apiKey, apiUrl: args.apiUrl })
         : command === "logout"
@@ -140,6 +149,13 @@ async function main() {
           : null;
     if (!result) throw new CliUsageError("UNKNOWN_AUTH_COMMAND", `Unknown auth command: ${command}`);
     writeOutput(result, args);
+    return;
+  }
+  if (args.positional[0] === "init" || args.positional[0] === "open") {
+    if (args.positional.length !== 1) {
+      throw new CliUsageError("UNEXPECTED_ARGUMENT", `${args.positional[0]} does not accept positional arguments.`);
+    }
+    writeOutput(await openCanvas(args, args.positional[0] === "init"), args);
     return;
   }
   if (args.positional[0] === "project" && args.positional[1] === "current") {
@@ -204,6 +220,7 @@ function parseArguments(values: string[]): ParsedArguments {
     help: false,
     ignoreCase: false,
     include: [],
+    noBrowser: false,
     overwrite: false,
     patchMode: false,
     positional: [],
@@ -257,10 +274,12 @@ function parseArguments(values: string[]): ParsedArguments {
     "--review": "review",
     "--route": "route",
     "--snippet-chars": "snippetChars",
+    "--source-file": "sourceFile",
     "--start-line": "startLine",
     "--tag": "tag",
     "--topic": "topic",
     "--value": "value",
+    "--wait": "wait",
     "--width": "width",
     "--workspace": "workspace",
   };
@@ -281,6 +300,7 @@ function parseArguments(values: string[]): ParsedArguments {
     else if (value === "--detach-layout") result.detachLayout = true;
     else if (value === "--full") result.full = true;
     else if (value === "--ignore-case") result.ignoreCase = true;
+    else if (value === "--no-browser") result.noBrowser = true;
     else if (value === "--overwrite") result.overwrite = true;
     else if (value === "--prepend") result.prepend = true;
     else if (value === "--pretty") result.pretty = true;
@@ -551,18 +571,41 @@ async function createConvenienceInput(
         "page create requires --id, --name, and --route.",
       );
     }
-    const viewport = parseViewport(args.width, args.height);
     return {
       expectedRevision: await revision(),
       id: args.id,
       layout: args.layout,
       name: args.name,
       route: normalizePageRouteArgument(args.route),
-      viewport,
+      viewport: parseViewport(args.width, args.height) ?? DEFAULT_PAGE_VIEWPORT,
+    };
+  }
+  if (toolName === "create_page_bundle" && (args.id || args.name || args.route)) {
+    if (!args.id || !args.name || !args.route) {
+      throw new CliUsageError(
+        "PAGE_FIELDS_REQUIRED",
+        "page create-bundle requires --id, --name, and --route.",
+      );
+    }
+    return {
+      expectedRevision: await revision(),
+      id: args.id,
+      layout: args.layout,
+      name: args.name,
+      route: normalizePageRouteArgument(args.route),
+      source: await readModuleSource(args.sourceFile),
+      viewport: parseViewport(args.width, args.height) ?? DEFAULT_PAGE_VIEWPORT,
     };
   }
   if (toolName === "create_layout" && args.id) {
     return { expectedRevision: await revision(), id: args.id };
+  }
+  if (toolName === "create_layout_bundle" && args.id) {
+    return {
+      expectedRevision: await revision(),
+      id: args.id,
+      source: await readModuleSource(args.sourceFile),
+    };
   }
   if (toolName === "create_component" && args.id) {
     return {
@@ -570,6 +613,16 @@ async function createConvenienceInput(
       expectedRevision: await revision(),
       id: args.id,
       props: parseAssignments(args.props, "--prop"),
+      tag: args.tag,
+    };
+  }
+  if (toolName === "create_component_bundle" && args.id) {
+    return {
+      defaults: parseAssignments(args.defaults, "--default"),
+      expectedRevision: await revision(),
+      id: args.id,
+      props: parseAssignments(args.props, "--prop"),
+      source: await readModuleSource(args.sourceFile),
       tag: args.tag,
     };
   }
@@ -687,6 +740,9 @@ async function readCurrentRevision(
   return context.revision;
 }
 
+// Matches the workspace default for pages created without a viewport.
+const DEFAULT_PAGE_VIEWPORT = Object.freeze({ height: 960, width: 1440 });
+
 function parseViewport(width?: string, height?: string) {
   if (width === undefined && height === undefined) return undefined;
   if (width === undefined || height === undefined) {
@@ -712,6 +768,17 @@ async function readRequiredStdin(code: string, message: string) {
     if (stdin.length > 0) return stdin;
   }
   throw new CliUsageError(code, message);
+}
+
+async function readModuleSource(sourceFile?: string) {
+  if (sourceFile === "-") {
+    return readRequiredStdin("SOURCE_REQUIRED", "--source-file - expects module source on stdin.");
+  }
+  if (sourceFile !== undefined) return readUtf8File(sourceFile);
+  return readRequiredStdin(
+    "SOURCE_REQUIRED",
+    "Bundle commands need a complete module: use --source-file <path>, or pipe it through stdin.",
+  );
 }
 
 async function readUtf8File(path: string) {
@@ -750,6 +817,33 @@ async function assertWorkspace(path: string) {
 
 async function isFile(path: string) {
   return (await stat(path).catch(() => undefined))?.isFile() ?? false;
+}
+
+function browserLoginOptions(args: ParsedArguments) {
+  const waitSeconds = args.wait === undefined ? undefined : Number(args.wait);
+  if (waitSeconds !== undefined && (!Number.isInteger(waitSeconds) || waitSeconds < 1 || waitSeconds > 600)) {
+    throw new CliUsageError("INVALID_WAIT", "--wait must be a whole number of seconds from 1 to 600.");
+  }
+  return { apiUrl: args.apiUrl, noBrowser: args.noBrowser, waitSeconds };
+}
+
+/**
+ * init signs in through the browser when needed (approval already lands on the
+ * canvas); otherwise both init and open show the active project's canvas.
+ */
+async function openCanvas(args: ParsedArguments, signInWhenNeeded: boolean) {
+  const status = await authStatus({ apiKey: args.apiKey, apiUrl: args.apiUrl });
+  if (!("project" in status)) {
+    if (!signInWhenNeeded) {
+      throw new CliConfigurationError("AUTH_REQUIRED", "DesainPakeAI CLI authentication is required.", "Run 'dpai init' or 'dpai auth login'.");
+    }
+    return browserLogin(browserLoginOptions(args));
+  }
+  const canvasUrl = canvasUrlFor(status.apiUrl, status.project.id);
+  const opened = args.noBrowser ? false : await openInBrowser(canvasUrl);
+  if (!opened) process.stderr.write(`Buka canvas di ${canvasUrl}
+`);
+  return { ...status, canvasUrl, opened };
 }
 
 function writeOutput(value: unknown, args: Pick<ParsedArguments, "pretty" | "raw">) {
@@ -806,6 +900,9 @@ const HELP = `DesainPakeAI CLI ${VERSION}
 
 Usage:
   dpai tools [--pretty]
+  dpai init [--no-browser] [--wait <seconds>]
+  dpai open [--no-browser]
+  dpai auth login [--api-url <url>] [--no-browser] [--wait <seconds>]
   dpai auth login --api-url <url> --api-key <dpai_key>
   dpai auth status|logout
   dpai project current
@@ -814,6 +911,7 @@ Usage:
 
 Comfortable authoring:
   dpai page create --id activity --name "Activity" --route activity --layout app-shell --width 1440 --height 900
+  dpai page create-bundle --id activity --name "Activity" --route activity --source-file activity.page.jsx
   dpai file read --path src/pages/activity.page.html --full
   dpai file edit --path src/pages/activity.page.html --before "<!-- agent:page-sections -->" --content-file section.html
   dpai file edit --path src/pages/activity.page.html --before "<!-- agent:page-sections -->" < section.html
@@ -836,9 +934,9 @@ Aliases:
   token list|create|set|delete
   guide get
   file list|grep|read|write|edit|patch
-  page create|set-layout
-  layout create
-  component create
+  page create|create-bundle|set-layout
+  layout create|create-bundle
+  component create|create-bundle
   preview verify
   work status|finish
   review get
@@ -859,9 +957,11 @@ Options:
   --patch-file <path>      Apply a standard unified diff with file patch
   --append|--prepend       Add content at the end or start of a source file
   --id --name --route      Native page-create fields; a missing route slash is added automatically
-  --layout <id>            Layout for page create or page set-layout
+  --layout <id>            Layout for page create, create-bundle, or set-layout
+  --source-file <path|->   Complete module source for create-bundle commands (UTF-8; - or piped stdin)
   --width <320-3840>       Page viewport width; use together with --height
   --height <320-2160>      Page viewport height; use together with --width
+                           page create and create-bundle default to 1440x960
   --page <id[,id...]>      Page target for verify and finish
   --detail compact|full    Context detail level
   --include <item[,item]>  Context fields; repeatable
@@ -883,7 +983,7 @@ Options:
   --end-line <n>           Last line for file read
   --around-line <n>        Center a partial file read around a line
   --context-lines <n>      Lines around --around-line
-  --tag <x-name>           Custom element tag for component create
+  --tag <x-name>           Custom element tag for component create or create-bundle
   --prop <name=value>      Component prop; repeatable
   --default <name=value>   Component default; repeatable
   --detach-layout          Remove the shared layout from a page
@@ -893,7 +993,9 @@ Options:
   --expected-revision <id> Optional explicit revision for native flags
   --export-output <path>   Override export output path
   --api-url <url>          DesainPakeAI application URL
-  --api-key <dpai_key>     DesainPakeAI CLI access key
+  --api-key <dpai_key>     DesainPakeAI CLI access key; omit it to sign in through the browser
+  --no-browser             Print the sign-in or canvas link instead of opening a browser
+  --wait <seconds>         How long auth login and init wait for browser approval (default 110)
   --pretty                 Pretty-print JSON
   --raw                    Print a string result without JSON quoting
   --help                   Show help

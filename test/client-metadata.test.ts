@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   createCliRequestHeaders,
   detectAgentHarness,
   DPAI_CLI_VERSION,
 } from "../src/client-metadata.js";
+
+test("the reported CLI version is the published package version", async () => {
+  const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
+  assert.equal(DPAI_CLI_VERSION, pkg.version);
+});
 
 test("detectAgentHarness recognizes common harness environments", () => {
   assert.equal(detectAgentHarness({ CODEX_HOME: "C:/codex" }), "codex");

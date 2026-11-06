@@ -34,9 +34,12 @@ test("exposes every workspace operation through the CLI", () => {
     "write_file",
     "edit_file",
     "create_page",
+    "create_page_bundle",
     "create_layout",
+    "create_layout_bundle",
     "set_page_layout",
     "create_component",
+    "create_component_bundle",
     "verify_preview",
     "finish_working_on_pages",
     "export_prototype",
@@ -624,6 +627,7 @@ test("CLI defaults to the active remote project and reads its revision automatic
         id: "remote-page",
         name: "Remote page",
         route: "/remote",
+        viewport: { height: 960, width: 1440 },
       });
       response.end(JSON.stringify({
         page: { id: "remote-page" },
