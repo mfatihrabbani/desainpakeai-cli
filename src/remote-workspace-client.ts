@@ -55,7 +55,7 @@ async function requestRemoteTool(
       body: JSON.stringify({ input: input ?? {} }),
       headers: createCliRequestHeaders(credential.apiKey, {
         "Content-Type": "application/json",
-      }),
+      }, { apiUrl: credential.apiUrl }),
       method: "POST",
     },
   );

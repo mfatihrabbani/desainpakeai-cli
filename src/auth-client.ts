@@ -1,14 +1,17 @@
+import { dirname } from "node:path";
 import { z } from "zod";
 import {
   deleteStoredCredential,
   getCredentialPath,
   maskApiKey,
+  normalizeApiUrl,
   resolveCredential,
   writeStoredCredential,
   type CredentialOverrides,
 } from "./credentials.js";
 import { CliConfigurationError } from "./errors.js";
 import { createCliRequestHeaders } from "./client-metadata.js";
+import { findProjectLink, linkedProjectIdFor, writeProjectLink } from "./project-link.js";
 
 const sessionSchema = z.object({
   authenticated: z.literal(true),
@@ -67,10 +70,60 @@ export async function authStatus(options: CredentialOverrides = {}) {
 export async function currentProject(options: CredentialOverrides = {}) {
   const credential = await resolveCredential(options);
   const session = await fetchCliSession(credential.apiUrl, credential.apiKey);
+  const found = findProjectLink();
+  const linked = found && linkedProjectIdFor(credential.apiUrl) === session.project.id;
   return {
     apiUrl: credential.apiUrl,
     project: session.project,
+    // Where the choice came from: this folder's link, or the account default.
+    projectLink: linked ? found.path : null,
   };
+}
+
+const projectListSchema = z.object({
+  projects: z.array(z.object({
+    id: z.string().uuid(),
+    name: z.string().min(1),
+    role: z.string().min(1),
+    updatedAt: z.string(),
+  }).passthrough()),
+  total: z.number().int().nonnegative(),
+}).passthrough();
+
+/** The user's projects, most recently changed first, for choosing a folder's design. */
+export async function listProjects(options: CredentialOverrides & { query?: string } = {}) {
+  const credential = await resolveCredential(options);
+  const apiUrl = credential.apiUrl.replace(/\/$/, "");
+  const search = options.query ? `?query=${encodeURIComponent(options.query)}` : "";
+  const response = await fetch(`${apiUrl}/api/cli/projects${search}`, {
+    // Listing must work even when this folder's link points at a project that is gone.
+    headers: createCliRequestHeaders(credential.apiKey, {}, { project: null }),
+  });
+  const parsed = projectListSchema.safeParse(await readJsonResponse(response));
+  if (!parsed.success) {
+    throw new CliConfigurationError("INVALID_PROJECT_LIST_RESPONSE", "The DesainPakeAI project list response is invalid.");
+  }
+  return {
+    projects: parsed.data.projects.map(({ id, name, role, updatedAt }) => ({ id, name, role, updatedAt })),
+    total: parsed.data.total,
+  };
+}
+
+/** Links the current folder to a project after the server confirms access to it. */
+export async function useProject(projectId: string, options: CredentialOverrides = {}) {
+  const credential = await resolveCredential(options);
+  const session = await fetchCliSession(credential.apiUrl, credential.apiKey, { project: projectId });
+  const projectLink = await writeProjectLink({ apiUrl: credential.apiUrl, project: session.project }, linkDirectoryFor(credential.apiUrl));
+  return { apiUrl: credential.apiUrl, project: session.project, projectLink };
+}
+
+/** Rewrites the nearest link for this server in place; otherwise the current folder gets one. */
+export function linkDirectoryFor(apiUrl: string) {
+  const found = findProjectLink();
+  if (found && normalizeApiUrl(found.link.apiUrl) === normalizeApiUrl(apiUrl)) {
+    return dirname(dirname(found.path));
+  }
+  return process.cwd();
 }
 
 export async function logout() {
@@ -96,7 +149,7 @@ export async function createOpenLink(options: CredentialOverrides = {}) {
   const credential = await resolveCredential(options);
   const apiUrl = credential.apiUrl.replace(/\/$/, "");
   const response = await fetch(`${apiUrl}/api/cli/open-link`, {
-    headers: createCliRequestHeaders(credential.apiKey),
+    headers: createCliRequestHeaders(credential.apiKey, {}, { apiUrl }),
     method: "POST",
   });
   const parsed = openLinkSchema.safeParse(await readJsonResponse(response));
@@ -110,9 +163,17 @@ export async function createOpenLink(options: CredentialOverrides = {}) {
   return { expiresAt: parsed.data.expiresAt, openUrl: `${apiUrl}${parsed.data.path}` };
 }
 
-export async function fetchCliSession(apiUrl: string, apiKey: string): Promise<CliSession> {
+/**
+ * The project defaults to this folder's link; `project` overrides it (`null`
+ * asks for the account's active project, as a fresh browser approval does).
+ */
+export async function fetchCliSession(
+  apiUrl: string,
+  apiKey: string,
+  target: { project?: string | null } = {},
+): Promise<CliSession> {
   const response = await fetch(`${apiUrl.replace(/\/$/, "")}/api/cli/session`, {
-    headers: createCliRequestHeaders(apiKey),
+    headers: createCliRequestHeaders(apiKey, {}, { apiUrl, ...target }),
   });
   const payload = await readJsonResponse(response);
   const parsed = sessionSchema.safeParse(payload);

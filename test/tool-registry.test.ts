@@ -332,6 +332,7 @@ test("logs in with a CLI access key and reports the live active project", async 
     assert.deepEqual(await currentProject(), {
       apiUrl,
       project: { id: projectId, name: "Active project", role: "editor" },
+      projectLink: null,
     });
 
     const loggedOut = await logout();
