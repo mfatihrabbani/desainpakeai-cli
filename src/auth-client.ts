@@ -82,6 +82,34 @@ export async function logout() {
   };
 }
 
+const openLinkSchema = z.object({
+  expiresAt: z.string().datetime(),
+  path: z.string().startsWith("/cli/open#t="),
+}).passthrough();
+
+/**
+ * Mints a one-time link that signs a browser in and opens the active project's
+ * canvas, so an agent can open it in its own browser. It expires in minutes
+ * and dies on first use.
+ */
+export async function createOpenLink(options: CredentialOverrides = {}) {
+  const credential = await resolveCredential(options);
+  const apiUrl = credential.apiUrl.replace(/\/$/, "");
+  const response = await fetch(`${apiUrl}/api/cli/open-link`, {
+    headers: createCliRequestHeaders(credential.apiKey),
+    method: "POST",
+  });
+  const parsed = openLinkSchema.safeParse(await readJsonResponse(response));
+  if (!parsed.success) {
+    throw new CliConfigurationError(
+      "INVALID_OPEN_LINK_RESPONSE",
+      "The DesainPakeAI open-link response is invalid.",
+      "Update the CLI or check that --api-url points at DesainPakeAI.",
+    );
+  }
+  return { expiresAt: parsed.data.expiresAt, openUrl: `${apiUrl}${parsed.data.path}` };
+}
+
 export async function fetchCliSession(apiUrl: string, apiKey: string): Promise<CliSession> {
   const response = await fetch(`${apiUrl.replace(/\/$/, "")}/api/cli/session`, {
     headers: createCliRequestHeaders(apiKey),

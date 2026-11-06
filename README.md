@@ -37,7 +37,15 @@ a fresh access key. No key passes through the agent chat. It waits up to 110
 seconds (`--wait <seconds>`); when it exits with `LOGIN_PENDING`, rerun it to
 keep waiting on the same code. Use `--no-browser` on a remote machine to print
 the link instead, `--api-url` for another server, and `dpai open` to show the
-Canvas again. CI and scripts can still pass a key:
+Canvas again.
+
+An agent with its own browser (Claude desktop, Codex) can run
+`dpai open --link` instead. It prints `openUrl`, a one-time link that signs that
+browser in and opens the active project's Canvas. The link expires after two
+minutes, dies on first use, and carries its token in the URL fragment so it never
+reaches a server log. Open it right away and do not paste it anywhere else.
+
+CI and scripts can still pass a key:
 
 ```powershell
 dpai auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED

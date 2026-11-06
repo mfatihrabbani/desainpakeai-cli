@@ -3,7 +3,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { ZodError } from "zod";
-import { authStatus, currentProject, login, logout } from "./auth-client.js";
+import { authStatus, createOpenLink, currentProject, login, logout } from "./auth-client.js";
 import { browserLogin, canvasUrlFor, openInBrowser } from "./browser-login.js";
 import { DPAI_CLI_VERSION } from "./client-metadata.js";
 import { WorkspaceToolError } from "./core/server/local-workspace.js";
@@ -83,6 +83,7 @@ type ParsedArguments = {
   input?: string;
   layout?: string;
   limit?: string;
+  link: boolean;
   noBrowser: boolean;
   name?: string;
   namePattern?: string;
@@ -220,6 +221,7 @@ function parseArguments(values: string[]): ParsedArguments {
     help: false,
     ignoreCase: false,
     include: [],
+    link: false,
     noBrowser: false,
     overwrite: false,
     patchMode: false,
@@ -300,6 +302,7 @@ function parseArguments(values: string[]): ParsedArguments {
     else if (value === "--detach-layout") result.detachLayout = true;
     else if (value === "--full") result.full = true;
     else if (value === "--ignore-case") result.ignoreCase = true;
+    else if (value === "--link") result.link = true;
     else if (value === "--no-browser") result.noBrowser = true;
     else if (value === "--overwrite") result.overwrite = true;
     else if (value === "--prepend") result.prepend = true;
@@ -830,6 +833,8 @@ function browserLoginOptions(args: ParsedArguments) {
 /**
  * init signs in through the browser when needed (approval already lands on the
  * canvas); otherwise both init and open show the active project's canvas.
+ * With --link, a signed-in CLI prints a one-time sign-in link instead, for an
+ * agent to open in its own browser.
  */
 async function openCanvas(args: ParsedArguments, signInWhenNeeded: boolean) {
   const status = await authStatus({ apiKey: args.apiKey, apiUrl: args.apiUrl });
@@ -840,6 +845,11 @@ async function openCanvas(args: ParsedArguments, signInWhenNeeded: boolean) {
     return browserLogin(browserLoginOptions(args));
   }
   const canvasUrl = canvasUrlFor(status.apiUrl, status.project.id);
+  if (args.link) {
+    const link = await createOpenLink({ apiKey: args.apiKey, apiUrl: args.apiUrl });
+    process.stderr.write("Link sekali pakai, berlaku 2 menit. Buka openUrl di browser agent; jangan bagikan.\n");
+    return { ...status, canvasUrl, ...link, opened: false };
+  }
   const opened = args.noBrowser ? false : await openInBrowser(canvasUrl);
   if (!opened) process.stderr.write(`Buka canvas di ${canvasUrl}
 `);
@@ -901,7 +911,7 @@ const HELP = `DesainPakeAI CLI ${VERSION}
 Usage:
   dpai tools [--pretty]
   dpai init [--no-browser] [--wait <seconds>]
-  dpai open [--no-browser]
+  dpai open [--no-browser | --link]
   dpai auth login [--api-url <url>] [--no-browser] [--wait <seconds>]
   dpai auth login --api-url <url> --api-key <dpai_key>
   dpai auth status|logout
@@ -995,6 +1005,8 @@ Options:
   --api-url <url>          DesainPakeAI application URL
   --api-key <dpai_key>     DesainPakeAI CLI access key; omit it to sign in through the browser
   --no-browser             Print the sign-in or canvas link instead of opening a browser
+  --link                   With open: print a one-time, 2-minute link that signs in and
+                           opens the canvas, for the agent's own browser
   --wait <seconds>         How long auth login and init wait for browser approval (default 110)
   --pretty                 Pretty-print JSON
   --raw                    Print a string result without JSON quoting
