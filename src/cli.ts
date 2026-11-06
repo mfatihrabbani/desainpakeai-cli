@@ -3,7 +3,17 @@
 import { readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { ZodError } from "zod";
-import { authStatus, currentProject, login, logout } from "./auth-client.js";
+import {
+  authStatus,
+  createOpenLink,
+  currentProject,
+  linkDirectoryFor,
+  listProjects,
+  login,
+  logout,
+  useProject,
+} from "./auth-client.js";
+import { linkedProjectIdFor, writeProjectLink } from "./project-link.js";
 import { browserLogin, canvasUrlFor, openInBrowser } from "./browser-login.js";
 import { DPAI_CLI_VERSION } from "./client-metadata.js";
 import { WorkspaceToolError } from "./core/server/local-workspace.js";
@@ -83,6 +93,7 @@ type ParsedArguments = {
   input?: string;
   layout?: string;
   limit?: string;
+  link: boolean;
   noBrowser: boolean;
   name?: string;
   namePattern?: string;
@@ -165,6 +176,21 @@ async function main() {
     writeOutput(await currentProject({ apiKey: args.apiKey, apiUrl: args.apiUrl }), args);
     return;
   }
+  if (args.positional[0] === "project" && args.positional[1] === "list") {
+    if (args.positional.length !== 2) {
+      throw new CliUsageError("UNEXPECTED_ARGUMENT", "project list does not accept positional arguments.");
+    }
+    writeOutput(await listProjects({ apiKey: args.apiKey, apiUrl: args.apiUrl, query: args.query }), args);
+    return;
+  }
+  if (args.positional[0] === "project" && args.positional[1] === "use") {
+    const projectId = args.positional[2];
+    if (args.positional.length !== 3 || !projectId) {
+      throw new CliUsageError("PROJECT_ID_REQUIRED", "Use: dpai project use <project-id>. Find IDs with 'dpai project list'.");
+    }
+    writeOutput(await useProject(projectId, { apiKey: args.apiKey, apiUrl: args.apiUrl }), args);
+    return;
+  }
 
   const { consumed, toolName } = resolveInvocation(args.positional);
   if (args.positional.length > consumed) {
@@ -187,7 +213,12 @@ async function main() {
       outputPath: args.exportOutput ? resolve(args.exportOutput) : undefined,
       workspaceRoot,
     })
-    : executeRemoteTool(name, value, { apiKey: args.apiKey, apiUrl: args.apiUrl });
+    : executeRemoteTool(name, value, {
+      apiKey: args.apiKey,
+      apiUrl: args.apiUrl,
+      outputPath: args.exportOutput ? resolve(args.exportOutput) : undefined,
+      overwrite: args.overwrite || undefined,
+    });
   if (args.positional.slice(0, 2).join(" ") === "token delete") {
     args.deleteToken = true;
   }
@@ -220,6 +251,7 @@ function parseArguments(values: string[]): ParsedArguments {
     help: false,
     ignoreCase: false,
     include: [],
+    link: false,
     noBrowser: false,
     overwrite: false,
     patchMode: false,
@@ -300,6 +332,7 @@ function parseArguments(values: string[]): ParsedArguments {
     else if (value === "--detach-layout") result.detachLayout = true;
     else if (value === "--full") result.full = true;
     else if (value === "--ignore-case") result.ignoreCase = true;
+    else if (value === "--link") result.link = true;
     else if (value === "--no-browser") result.noBrowser = true;
     else if (value === "--overwrite") result.overwrite = true;
     else if (value === "--prepend") result.prepend = true;
@@ -829,7 +862,11 @@ function browserLoginOptions(args: ParsedArguments) {
 
 /**
  * init signs in through the browser when needed (approval already lands on the
- * canvas); otherwise both init and open show the active project's canvas.
+ * canvas) and links this folder to the project picked there. In a signed-in
+ * but unlinked folder it links the only project, or returns the choices for
+ * the agent to ask about. open shows the folder's project, else the account's
+ * active one. With --link, a signed-in CLI prints a one-time sign-in link
+ * instead, for an agent to open in its own browser.
  */
 async function openCanvas(args: ParsedArguments, signInWhenNeeded: boolean) {
   const status = await authStatus({ apiKey: args.apiKey, apiUrl: args.apiUrl });
@@ -837,9 +874,32 @@ async function openCanvas(args: ParsedArguments, signInWhenNeeded: boolean) {
     if (!signInWhenNeeded) {
       throw new CliConfigurationError("AUTH_REQUIRED", "DesainPakeAI CLI authentication is required.", "Run 'dpai init' or 'dpai auth login'.");
     }
-    return browserLogin(browserLoginOptions(args));
+    const login = await browserLogin(browserLoginOptions(args));
+    const projectLink = await writeProjectLink(login, linkDirectoryFor(login.apiUrl));
+    process.stderr.write(`Folder ini terhubung ke desain "${login.project.name}" (${projectLink}).\n`);
+    return { ...login, projectLink };
+  }
+  if (signInWhenNeeded && !linkedProjectIdFor(status.apiUrl)) {
+    const { projects } = await listProjects({ apiKey: args.apiKey, apiUrl: args.apiUrl });
+    if (projects.length !== 1) {
+      process.stderr.write("Folder ini belum terhubung ke desain. Tanyakan ke pengguna desain mana yang dipakai, lalu jalankan 'dpai project use <id>'.\n");
+      return {
+        ...status,
+        needsProject: true,
+        projects,
+        suggestion: "Ask the user which design this folder belongs to, then run 'dpai project use <id>'. Then run 'dpai open'.",
+      };
+    }
+    const linked = await useProject(projects[0]!.id, { apiKey: args.apiKey, apiUrl: args.apiUrl });
+    process.stderr.write(`Folder ini terhubung ke desain "${linked.project.name}" (${linked.projectLink}).\n`);
+    return openCanvas(args, false);
   }
   const canvasUrl = canvasUrlFor(status.apiUrl, status.project.id);
+  if (args.link) {
+    const link = await createOpenLink({ apiKey: args.apiKey, apiUrl: args.apiUrl });
+    process.stderr.write("Link sekali pakai, berlaku 2 menit. Buka openUrl di browser agent; jangan bagikan.\n");
+    return { ...status, canvasUrl, ...link, opened: false };
+  }
   const opened = args.noBrowser ? false : await openInBrowser(canvasUrl);
   if (!opened) process.stderr.write(`Buka canvas di ${canvasUrl}
 `);
@@ -901,11 +961,13 @@ const HELP = `DesainPakeAI CLI ${VERSION}
 Usage:
   dpai tools [--pretty]
   dpai init [--no-browser] [--wait <seconds>]
-  dpai open [--no-browser]
+  dpai open [--no-browser | --link]
   dpai auth login [--api-url <url>] [--no-browser] [--wait <seconds>]
   dpai auth login --api-url <url> --api-key <dpai_key>
   dpai auth status|logout
   dpai project current
+  dpai project list [--query <text>]
+  dpai project use <project-id>   Link this folder (.dpai/project.json) to a design
   dpai call <operation> [--workspace <path>] [--input <json|@file|->]
   dpai <group> <command> [options]
 
@@ -991,10 +1053,15 @@ Options:
   --output <path>          Downloaded visual review image path
   --topic <topic>          Guide topic for guide get
   --expected-revision <id> Optional explicit revision for native flags
-  --export-output <path>   Override export output path
+  --export-output <path>   Export target: an .html file for HTML projects, a folder
+                           for React (JSX) projects. Default: .output/ beside the
+                           folder's .dpai/project.json
+  --overwrite              Let export write into a non-empty folder
   --api-url <url>          DesainPakeAI application URL
   --api-key <dpai_key>     DesainPakeAI CLI access key; omit it to sign in through the browser
   --no-browser             Print the sign-in or canvas link instead of opening a browser
+  --link                   With open: print a one-time, 2-minute link that signs in and
+                           opens the canvas, for the agent's own browser
   --wait <seconds>         How long auth login and init wait for browser approval (default 110)
   --pretty                 Pretty-print JSON
   --raw                    Print a string result without JSON quoting

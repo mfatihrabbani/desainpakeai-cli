@@ -3,6 +3,7 @@ import { resolveCredential, type CredentialOverrides } from "./credentials.js";
 import { CliConfigurationError } from "./errors.js";
 import { createCliRequestHeaders } from "./client-metadata.js";
 import { GUIDES } from "./guides.js";
+import { downloadRemoteExport, type RemoteExportOptions } from "./remote-export.js";
 import {
   compactToolPayload,
   shapeDesignContext,
@@ -11,11 +12,17 @@ import {
   type ProjectContextOptions,
 } from "./output-shaping.js";
 
+export type RemoteToolOptions = RemoteExportOptions;
+
 export async function executeRemoteTool(
   name: string,
   input: unknown,
-  options: CredentialOverrides = {},
+  options: RemoteToolOptions = {},
 ) {
+  if (name === "export_prototype") {
+    const context: unknown = await executeRemoteTool("get_project_context", {}, options);
+    return downloadRemoteExport(input as { expectedRevision: string }, context as Parameters<typeof downloadRemoteExport>[1], options);
+  }
   if (name === "get_guide") {
     try {
       return await requestRemoteTool(name, input, options);
@@ -55,7 +62,7 @@ async function requestRemoteTool(
       body: JSON.stringify({ input: input ?? {} }),
       headers: createCliRequestHeaders(credential.apiKey, {
         "Content-Type": "application/json",
-      }),
+      }, { apiUrl: credential.apiUrl }),
       method: "POST",
     },
   );

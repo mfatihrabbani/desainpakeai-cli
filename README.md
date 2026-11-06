@@ -37,7 +37,37 @@ a fresh access key. No key passes through the agent chat. It waits up to 110
 seconds (`--wait <seconds>`); when it exits with `LOGIN_PENDING`, rerun it to
 keep waiting on the same code. Use `--no-browser` on a remote machine to print
 the link instead, `--api-url` for another server, and `dpai open` to show the
-Canvas again. CI and scripts can still pass a key:
+Canvas again.
+
+Each code folder remembers its design in `.dpai/project.json` (project ID and
+server, no secret, safe to commit). `dpai init` writes it after the browser
+approval. In a new folder with the CLI already signed in, `dpai init` links the
+only project, or returns `needsProject` with the choices so the agent can ask
+which design to use and run `dpai project use <id>`. Every command run inside
+that folder, or any subfolder, then targets that design; folders without a link
+use the account's active project. `DPAI_PROJECT=<id>` overrides it for one run.
+
+```powershell
+dpai project list --query kopi
+dpai project use 7d5a3c3e-8f9b-4a51-9d26-2b6a3c1f0e11
+dpai project current   # projectLink shows which file decided
+```
+
+`dpai export` writes the active design onto this machine in its own runtime:
+a React (`react-jsx@1`) project becomes a Vite + React app folder
+(`npm install`, `npm run dev`), any other project one HTML file. Without
+`--export-output` it lands in `.output/` beside the folder's
+`.dpai/project.json`, even when run from a subfolder. It never writes into the
+linked code folder itself or into a non-empty folder that is not an earlier
+export unless you pass `--overwrite`.
+
+An agent with its own browser (Claude desktop, Codex) can run
+`dpai open --link` instead. It prints `openUrl`, a one-time link that signs that
+browser in and opens the active project's Canvas. The link expires after two
+minutes, dies on first use, and carries its token in the URL fragment so it never
+reaches a server log. Open it right away and do not paste it anywhere else.
+
+CI and scripts can still pass a key:
 
 ```powershell
 dpai auth login --api-url https://desainpakeai.com --api-key dpai_REDACTED

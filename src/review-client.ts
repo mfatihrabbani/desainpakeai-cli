@@ -18,7 +18,7 @@ export async function getReview(
   const credential = await resolveCredential(options);
   const base = credential.apiUrl.replace(/\/$/, "");
   const reviewId = encodeURIComponent(input.reviewId);
-  const headers = createCliRequestHeaders(credential.apiKey);
+  const headers = createCliRequestHeaders(credential.apiKey, {}, { apiUrl: credential.apiUrl });
   const metadataResponse = await fetch(`${base}/api/cli/reviews/${reviewId}`, { headers });
   const review = await readJsonResponse(metadataResponse);
 

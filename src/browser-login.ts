@@ -96,7 +96,8 @@ export async function browserLogin(
     const outcome = await pollPendingLogin(pending, dependencies);
     if (outcome.status === "approved") {
       await deletePendingLogin();
-      const session = await fetchCliSession(apiUrl, outcome.apiKey);
+      // The project just picked in the browser, not whatever this folder linked before.
+      const session = await fetchCliSession(apiUrl, outcome.apiKey, { project: null });
       const credentialPath = await writeStoredCredential({
         apiKey: outcome.apiKey,
         apiKeyId: session.apiKey.id,

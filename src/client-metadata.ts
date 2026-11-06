@@ -1,17 +1,28 @@
-export const DPAI_CLI_VERSION = "0.3.0";
+import { linkedProjectIdFor } from "./project-link.js";
 
+export const DPAI_CLI_VERSION = "0.3.1";
+
+/**
+ * `project` names the target project explicitly (`null` sends none);
+ * otherwise, with `apiUrl`, the folder's `.dpai/project.json` decides.
+ */
 export function createCliRequestHeaders(
   apiKey: string,
   additional: Record<string, string> = {},
+  target: { apiUrl?: string; project?: string | null } = {},
 ): Record<string, string> {
   const harness = detectAgentHarness();
   const harnessVersion = cleanHeader(process.env.DPAI_AGENT_VERSION, 40);
+  const project = target.project === undefined && target.apiUrl
+    ? linkedProjectIdFor(target.apiUrl)
+    : target.project ?? undefined;
   return {
     Authorization: `Bearer ${apiKey}`,
     "User-Agent": `desainpakeai-cli/${DPAI_CLI_VERSION}`,
     "X-DPAI-CLI-Version": DPAI_CLI_VERSION,
     ...(harness ? { "X-DPAI-Agent": harness } : {}),
     ...(harnessVersion ? { "X-DPAI-Agent-Version": harnessVersion } : {}),
+    ...(project ? { "X-DPAI-Project": project } : {}),
     ...additional,
   };
 }
